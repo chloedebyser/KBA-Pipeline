@@ -17,12 +17,12 @@ library(stringi)
 # Portal URL
 url <- "https://gis.natureserve.ca/arcgis/rest/services/"
 
-# Directories
-formsDir <- "G:/My Drive/KBA Canada Team/4. KBA Site Proposals - Materials/0_All Sites - Repositories/Final Proposal Forms/"
-
 # Input parameters
       # Site name
 siteName <- "Trial Islands"
+
+      # Site path
+sitePath <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/Test workspace/Outputs_PilotBatch2/KBACanadaProposal_TrialIslands_Canada.xlsm"
 
       # Site code
 siteCode <- 1
@@ -38,16 +38,14 @@ crosswalk <- data.frame(Layer_BC = Layer_BC, Name_BC = Name_BC, Layer_WCSC = Lay
   drop_na()
   
       # Proposal form sheets
-aboutYou <- read.xlsx(paste0(formsDir, "KBAproposal_", siteName, "_Canada.xlsx"), sheet=2)
-aboutProposal <- read.xlsx(paste0(formsDir, "KBAproposal_", siteName, "_Canada.xlsx"), sheet=3)
-siteInformation <- read.xlsx(paste0(formsDir, "KBAproposal_", siteName, "_Canada.xlsx"), sheet=4)
-speciesGlobal <- read.xlsx(paste0(formsDir, "KBAproposal_", siteName, "_Canada.xlsx"), sheet=5); colnames(speciesGlobal) <- speciesGlobal[2,]; speciesGlobal %<>% .[3:nrow(.),] %>% drop_na("Scientific name") %>% rename(Species = "Species (common name)")
-speciesSite <- read.xlsx(paste0(formsDir, "KBAproposal_", siteName, "_Canada.xlsx"), sheet=6); colnames(speciesSite) <- speciesSite[2,]; speciesSite %<>% .[3:nrow(.), 1:18] %>% drop_na(Species)
-ecosystems <- read.xlsx(paste0(formsDir, "KBAproposal_", siteName, "_Canada.xlsx"), sheet=7)
-consultation <- read.xlsx(paste0(formsDir, "KBAproposal_", siteName, "_Canada.xlsx"), sheet=8)
-threats <- read.xlsx(paste0(formsDir, "KBAproposal_", siteName, "_Canada.xlsx"), sheet=9)
-criteriaBySpecies <- read.xlsx(paste0(formsDir, "KBAproposal_", siteName, "_Canada.xlsx"), sheet=12) %>% .[4:nrow(.), c(1,16:21, 26:29)]
-colnames(criteriaBySpecies) <- c("NATIONAL_SCIENTIFIC_NAME", "A1a", "A1b", "A1c",	"A1d", "A1e",	"B1", "D1a", "D1b", "D2", "D3")
+proposer2 <- read.xlsx(sitePath, sheet="1. PROPOSER")
+site2 <- read.xlsx(sitePath, sheet="2. SITE")
+species3 <- read.xlsx(sitePath, sheet="3. SPECIES")
+ecosystems4 <- read.xlsx(sitePath, sheet="4. ECOSYSTEMS & C")
+threats5 <- read.xlsx(sitePath, sheet="5. THREATS")
+review6 <- read.xlsx(sitePath, sheet="6. REVIEW")
+citations7 <- read.xlsx(sitePath, sheet="7. CITATIONS")
+checkboxes <- read.xlsx(sitePath, sheet="checkboxes")
 
       # EBAR-KBA database
 arc.open(paste0(url, 'EBAR-KBA/KBA/FeatureServer/0')) # This line is only there because it stops R from aborting, for some reason
@@ -76,7 +74,7 @@ if(nrow(kbaCustomPolygon) > 0){
 }
 
       # Master species list
-species <- read.xlsx("G:/My Drive/KBA Canada Team/2. Formatted Datasets - Tabular/Species.xlsx", sheet=2)
+species <- read.xlsx("G:/My Drive/KBA Canada Team/2. Formatted Datasets - Tabular/Ref_Species.xlsx", sheet=2)
 
 #### Format Data - For KBA-EBAR database ####
 # KBASite
