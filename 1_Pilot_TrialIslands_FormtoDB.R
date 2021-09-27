@@ -2,7 +2,7 @@
 #### Wildlife Conservation Society - 2021
 #### Script by Chloé Debyser
 
-#### Canada KBA Form to KBA-EBAR - Trial Islands Pilot
+#### Canada KBA Form to KBA-EBAR database - Trial Islands & Yukon Pilot
 
 #### Workspace ####
 # Packages
@@ -18,14 +18,17 @@ library(stringi)
 url <- "https://gis.natureserve.ca/arcgis/rest/services/"
 
 # Input parameters
-      # Site name
-siteName <- "Trial Islands"
-
-      # Site path
-sitePath <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/Test workspace/Outputs_PilotBatch2/KBACanadaProposal_TrialIslands_Canada.xlsm"
-
-      # Site code
-siteCode <- 1
+inputDir <- "G:/My Drive/KBA Canada Team/4. KBA Site Proposals - Materials/Sites converted to KBA Canada Form/"
+sitePaths <- c("Batch 1/Yukon/KBACanadaProposal_BeaverCreek_Canada.xlsm",
+               "Batch 1/Yukon/KBACanadaProposal_CarcrossDunes_Canada.xlsm",
+               "Batch 1/Yukon/KBACanadaProposal_DezadeashLake_Canada.xlsm",
+               "Batch 1/Yukon/KBACanadaProposal_KluaneNationalParkandReserveDezadeash-KaskawulshConfluence_Canada.xlsm",
+               "Batch 1/Yukon/KBACanadaProposal_KoidernMountain_Canada.xlsm",
+               "Batch 1/Yukon/KBACanadaProposal_KusawaTerritorialParkTakhiniRiver_Canada.xlsm",
+               "Batch 1/Yukon/KBACanadaProposal_LittleTeslinLake_Canada.xlsm",
+               "Batch 1/Yukon/KBACanadaProposal_Squanga,SeaforthandTeenahLakes_Canada.xlsm",
+               "Batch 1/Yukon/KBACanadaProposal_WellesleyPeak_Canada.xlsm",
+               "Batch 2/KBACanadaProposal_TrialIslands_Canada.xlsm")
 
 # Data
       # WCSC-BC crosswalk
@@ -35,203 +38,218 @@ Layer_WCSC <- crosswalk[2:nrow(crosswalk), 8]
 Name_BC <- crosswalk[2:nrow(crosswalk), 3]
 Name_WCSC <- crosswalk[2:nrow(crosswalk), 9]
 crosswalk <- data.frame(Layer_BC = Layer_BC, Name_BC = Name_BC, Layer_WCSC = Layer_WCSC, Name_WCSC = Name_WCSC) %>%
-  drop_na()
+  filter_all(any_vars(!is.na(.)))
   
-      # Proposal form sheets
-proposer2 <- read.xlsx(sitePath, sheet="1. PROPOSER")
-site2 <- read.xlsx(sitePath, sheet="2. SITE")
-species3 <- read.xlsx(sitePath, sheet="3. SPECIES")
-ecosystems4 <- read.xlsx(sitePath, sheet="4. ECOSYSTEMS & C")
-threats5 <- read.xlsx(sitePath, sheet="5. THREATS")
-review6 <- read.xlsx(sitePath, sheet="6. REVIEW")
-citations7 <- read.xlsx(sitePath, sheet="7. CITATIONS")
-checkboxes <- read.xlsx(sitePath, sheet="checkboxes")
-
-      # EBAR-KBA database
-arc.open(paste0(url, 'EBAR-KBA/KBA/FeatureServer/0')) # This line is only there because it stops R from aborting, for some reason
-KBASite <- arc.open(paste0(url, 'EBAR-KBA/KBA/FeatureServer/0')) %>%
-  arc.select(., where_clause=paste0("nationalname = '", siteName, "'")) %>%
-  arc.data2sp() %>%
-  st_as_sf()
-
-KBASiteID <- KBASite$kbasiteid
-
-speciesAtSite <- arc.open(paste0(url, 'EBAR-KBA/KBA/FeatureServer/7')) %>%
-  arc.select(., where_clause=paste0("kbasiteid = ", KBASiteID))
-
-speciesAtSiteIDs <- speciesAtSite$speciesatsiteid
-
-kbaInputPolygon <- arc.open(paste0(url, 'EBAR-KBA/KBA/FeatureServer/6')) %>%
-  arc.select(., where_clause=paste0("speciesatsiteid IN (", paste(speciesAtSiteIDs, collapse=", "), ")"))
-
-kbaCustomPolygon <- arc.open(paste0(url, 'EBAR-KBA/KBA/FeatureServer/1')) %>%
-  arc.select(., where_clause=paste0("speciesatsiteid IN (", paste(speciesAtSiteIDs, collapse=", "), ")"))
-
-if(nrow(kbaCustomPolygon) > 0){
-  kbaCustomPolygon %<>%
-    arc.data2sp() %>%
-    st_as_sf()
-}
-
       # Master species list
 species <- read.xlsx("G:/My Drive/KBA Canada Team/2. Formatted Datasets - Tabular/Ref_Species.xlsx", sheet=2)
 
-#### Format Data - For KBA-EBAR database ####
-# KBASite
-      # Columns needed
-KBASite_colsNeeded <- c("SiteCode", "KBASiteID", "WDKBAID", "NationalName", "InternationalName", "Jurisdiction", "KBALevel", "GlobalCriteria", "NationalCriteria", "Proposer", "ProposerEmail", "SiteStatus", "StatusChangeDate", "DelineationStatus", "DelineationNotes", "DelineationNextSteps", "SiteDescription_EN", "SiteDescription_FR", "AdditionalBiodiversity_EN", "AdditionalBiodiversity_FR", "SiteManagement_EN", "SiteManagement_FR", "NominationRationale_EN", "NominationRationale_FR", "DelineationRationale_EN", "DelineationRationale_FR", "CustomaryJurisdiction_EN", "CustomaryJurisdiction_FR", "ProtectedAreas_EN", "ProtectedAreas_FR", "PercentProtected", "OECMsAtSite_EN", "OECMsAtSite_FR", "Latitude", "Longitude", "AltitudeMin", "AltitudeMax", "Systems", "Area", "geometry")
+      # EBAR-KBA Database
+arc.open(paste0(url, 'EBAR-KBA/KBA/FeatureServer/0')) # This line is only there because it stops R from aborting, for some reason
 
-      # Columns present
-KBASite_colsPresent <- tolower(KBASite_colsNeeded) %>%
-  .[which(. %in% colnames(KBASite))]
-
-      # Columns missing
-KBASite_colsMissing <- KBASite_colsNeeded[which(!tolower(KBASite_colsNeeded) %in% colnames(KBASite))]
-
-      # Organize columns
-KBASite %<>% select(all_of(KBASite_colsPresent))
-colnames(KBASite) <- KBASite_colsNeeded[which(tolower(KBASite_colsNeeded) %in% colnames(KBASite))]
-extraColumns <- matrix(NA_real_, nrow=nrow(KBASite), ncol=length(KBASite_colsMissing), dimnames=list(NULL, KBASite_colsMissing))
-KBASite <- bind_cols(KBASite, as.data.frame(extraColumns))
-KBASite %<>% select(all_of(KBASite_colsNeeded))
-
-      # Populate
-KBASite %<>% mutate(SiteCode = siteCode,
-                    InternationalName = siteInformation[4,2],
-                    Jurisdiction = siteInformation[6,2],
-                    KBALevel = "Global",
-                    StatusChangeDate = "2020-07-01",
-                    SiteDescription_EN = siteInformation[14,2],
-                    AdditionalBiodiversity_EN = siteInformation[23,2],
-                    CustomaryJurisdiction_EN = siteInformation[24,2],
-                    ProtectedAreas_EN = "Victoria Harbour Migratory Bird Sanctuary and Trial Islands Ecological Reserve",
-                    PercentProtected = siteInformation[19,2],
-                    Latitude = siteInformation[8,2],
-                    Longitude = siteInformation[9,2],
-                    AltitudeMin = siteInformation[10,2],
-                    AltitudeMax = siteInformation[11,2],
-                    Systems = paste(trimws(siteInformation[12,2:5][!is.na(siteInformation[12,2:5])]), collapse="; "),
-                    Area = siteInformation[7,2])
-
-      # Save
-arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/KBA-EBAR_TrialIslands.gdb/KBASite", KBASite, overwrite=T)
-
-# KBAHabitat
-# TO DO: Implement logic for when the habitat information is blank in the proposal form (then KBAHabitat will be empty too)
-
-      # Get habitat information from the proposal form
-KBAHabitat <- data.frame(Habitat = paste(siteInformation[21, 2:5]),
-                         PercentCover = paste(siteInformation[22, 2:5]))
-
-      # Format
-KBAHabitat %<>% 
-  mutate(KBASiteID = KBASite$KBASiteID) %>%
-  select(KBASiteID, Habitat, PercentCover)
-
-      # Save
-arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/KBA-EBAR_TrialIslands.gdb/KBAHabitat", KBAHabitat, overwrite = T)
-
-# KBAThreat
-      # Get information from the proposal form
-KBAThreat <- threats[6:13,]
-
-      # Assign column names
-colnames(KBAThreat) <- c("Applicability", "Level1", "Level2", "Level3", "Timing", "Scope", "Severity", "Notes")
-
-      # Populate missing columns
-KBAThreat %<>%
-  mutate(Category = ifelse(Applicability == "All species listed in Sheet 5",
-                           "Entire site",
-                           "Species")) %>%
-  mutate(SpeciesID = sapply(1:nrow(.), function(x) ifelse(Category[x] == "Species",
-                                                          species$SpeciesID[which(species$NATIONAL_SCIENTIFIC_NAME == Applicability[x])],
-                                                          NA))) %>%
-  mutate(EcosystemID = NA,
-         KBASiteID = KBASite$KBASiteID,
-         KBAThreatID = 1:nrow(.)) %>%
-  select(KBAThreatID, KBASiteID, Category, SpeciesID, EcosystemID, Level1, Level2, Level3, Timing, Scope, Severity, Notes)
-
-      # Save
-arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/KBA-EBAR_TrialIslands.gdb/KBAThreat", KBAThreat, overwrite = T)
-
-# KBAAction
-      # Get information from the proposal form
-KBAAction_ongoing <- data.frame(ConservationAction = paste(siteInformation[15, 2:5])) %>%
-  mutate(OngoingOrNeeded = "Ongoing") %>%
-  mutate(ConservationAction = ifelse(ConservationAction == "NA", NA, ConservationAction)) %>%
-  drop_na
+#### Canada KBA Form to KBA-EBAR database ####
+for(sitePath in sitePaths){
   
-KBAAction_needed <- data.frame(ConservationAction = paste(siteInformation[16, 2:5])) %>%
-  mutate(OngoingOrNeeded = "Needed") %>%
-  mutate(ConservationAction = ifelse(ConservationAction == "NA", NA, ConservationAction)) %>%
-  drop_na
-
-      # Bind rows
-if((nrow(KBAAction_ongoing) > 0) & (nrow(KBAAction_needed))){
-  KBAAction <- bind_rows(KBAAction_ongoing, KBAAction_needed)
-}else if(nrow(KBAAction_ongoing) > 0){
-  KBAAction <- KBAAction_ongoing
-}else{
-  KBAAction <- KBAAction_needed
+  # ** LOAD KEY INFORMATION **
+  # Load proposal form sheets
+  proposer2 <- read.xlsx(paste0(inputDir, sitePath), sheet="1. PROPOSER")
+  site2 <- read.xlsx(paste0(inputDir, sitePath), sheet="2. SITE")
+  species3 <- read.xlsx(paste0(inputDir, sitePath), sheet="3. SPECIES")
+  ecosystems4 <- read.xlsx(paste0(inputDir, sitePath), sheet="4. ECOSYSTEMS & C")
+  threats5 <- read.xlsx(paste0(inputDir, sitePath), sheet="5. THREATS")
+  review6 <- read.xlsx(paste0(inputDir, sitePath), sheet="6. REVIEW")
+  citations7 <- read.xlsx(paste0(inputDir, sitePath), sheet="7. CITATIONS")
+  checkboxes <- read.xlsx(paste0(inputDir, sitePath), sheet="checkboxes")
+  
+  # Site name
+  siteName <- site2[1,3]
+  
+  # Load KBA-EBAR database information
+        # KBASite
+  KBASite <- arc.open(paste0(url, 'EBAR-KBA/KBA/FeatureServer/0')) %>%
+    arc.select(., where_clause=paste0("nationalname = '", siteName, "'")) %>%
+    arc.data2sp() %>%
+    st_as_sf()
+  
+  KBASiteID <- KBASite$kbasiteid
+  
+        # SpeciesAtSite
+  speciesAtSite <- arc.open(paste0(url, 'EBAR-KBA/KBA/FeatureServer/7')) %>%
+    arc.select(., where_clause=paste0("kbasiteid = ", KBASiteID))
+  
+  speciesAtSiteIDs <- speciesAtSite$speciesatsiteid
+  
+        # KBAInputPolygon
+  kbaInputPolygon <- arc.open(paste0(url, 'EBAR-KBA/KBA/FeatureServer/6')) %>%
+    arc.select(., where_clause=paste0("speciesatsiteid IN (", paste(speciesAtSiteIDs, collapse=", "), ")"))
+  
+        # KBACustomPolygon
+  kbaCustomPolygon <- arc.open(paste0(url, 'EBAR-KBA/KBA/FeatureServer/1')) %>%
+    arc.select(., where_clause=paste0("speciesatsiteid IN (", paste(speciesAtSiteIDs, collapse=", "), ")"))
+  
+  if(nrow(kbaCustomPolygon) > 0){
+    kbaCustomPolygon %<>%
+      arc.data2sp() %>%
+      st_as_sf()
+  }
+  
+  # ** CONVERT TO KBA-EBAR DATA MODEL **
+  # KBASite
+        # Columns needed
+  KBASite_colsNeeded <- crosswalk %>% filter(Layer_WCSC == "KBASite") %>% pull(Name_WCSC)
+  
+        # Columns present
+  KBASite_colsPresent <- tolower(KBASite_colsNeeded) %>%
+    .[which(. %in% colnames(KBASite))]
+  
+        # Columns missing
+  KBASite_colsMissing <- KBASite_colsNeeded[which(!tolower(KBASite_colsNeeded) %in% KBASite_colsPresent)]
+  
+  # PICK UP HERE
+  # Organize columns
+  KBASite %<>% select(all_of(KBASite_colsPresent))
+  colnames(KBASite) <- KBASite_colsNeeded[which(tolower(KBASite_colsNeeded) %in% colnames(KBASite))]
+  extraColumns <- matrix(NA_real_, nrow=nrow(KBASite), ncol=length(KBASite_colsMissing), dimnames=list(NULL, KBASite_colsMissing))
+  KBASite <- bind_cols(KBASite, as.data.frame(extraColumns))
+  KBASite %<>% select(all_of(KBASite_colsNeeded))
+  
+  # Populate
+  KBASite %<>% mutate(SiteCode = siteCode,
+                      InternationalName = siteInformation[4,2],
+                      Jurisdiction = siteInformation[6,2],
+                      KBALevel = "Global",
+                      StatusChangeDate = "2020-07-01",
+                      SiteDescription_EN = siteInformation[14,2],
+                      AdditionalBiodiversity_EN = siteInformation[23,2],
+                      CustomaryJurisdiction_EN = siteInformation[24,2],
+                      ProtectedAreas_EN = "Victoria Harbour Migratory Bird Sanctuary and Trial Islands Ecological Reserve",
+                      PercentProtected = siteInformation[19,2],
+                      Latitude = siteInformation[8,2],
+                      Longitude = siteInformation[9,2],
+                      AltitudeMin = siteInformation[10,2],
+                      AltitudeMax = siteInformation[11,2],
+                      Systems = paste(trimws(siteInformation[12,2:5][!is.na(siteInformation[12,2:5])]), collapse="; "),
+                      Area = siteInformation[7,2])
+  
+  # Save
+  arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/KBA-EBAR_TrialIslands.gdb/KBASite", KBASite, overwrite=T)
+  
+  # KBAHabitat
+  # TO DO: Implement logic for when the habitat information is blank in the proposal form (then KBAHabitat will be empty too)
+  
+  # Get habitat information from the proposal form
+  KBAHabitat <- data.frame(Habitat = paste(siteInformation[21, 2:5]),
+                           PercentCover = paste(siteInformation[22, 2:5]))
+  
+  # Format
+  KBAHabitat %<>% 
+    mutate(KBASiteID = KBASite$KBASiteID) %>%
+    select(KBASiteID, Habitat, PercentCover)
+  
+  # Save
+  arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/KBA-EBAR_TrialIslands.gdb/KBAHabitat", KBAHabitat, overwrite = T)
+  
+  # KBAThreat
+  # Get information from the proposal form
+  KBAThreat <- threats[6:13,]
+  
+  # Assign column names
+  colnames(KBAThreat) <- c("Applicability", "Level1", "Level2", "Level3", "Timing", "Scope", "Severity", "Notes")
+  
+  # Populate missing columns
+  KBAThreat %<>%
+    mutate(Category = ifelse(Applicability == "All species listed in Sheet 5",
+                             "Entire site",
+                             "Species")) %>%
+    mutate(SpeciesID = sapply(1:nrow(.), function(x) ifelse(Category[x] == "Species",
+                                                            species$SpeciesID[which(species$NATIONAL_SCIENTIFIC_NAME == Applicability[x])],
+                                                            NA))) %>%
+    mutate(EcosystemID = NA,
+           KBASiteID = KBASite$KBASiteID,
+           KBAThreatID = 1:nrow(.)) %>%
+    select(KBAThreatID, KBASiteID, Category, SpeciesID, EcosystemID, Level1, Level2, Level3, Timing, Scope, Severity, Notes)
+  
+  # Save
+  arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/KBA-EBAR_TrialIslands.gdb/KBAThreat", KBAThreat, overwrite = T)
+  
+  # KBAAction
+  # Get information from the proposal form
+  KBAAction_ongoing <- data.frame(ConservationAction = paste(siteInformation[15, 2:5])) %>%
+    mutate(OngoingOrNeeded = "Ongoing") %>%
+    mutate(ConservationAction = ifelse(ConservationAction == "NA", NA, ConservationAction)) %>%
+    drop_na
+  
+  KBAAction_needed <- data.frame(ConservationAction = paste(siteInformation[16, 2:5])) %>%
+    mutate(OngoingOrNeeded = "Needed") %>%
+    mutate(ConservationAction = ifelse(ConservationAction == "NA", NA, ConservationAction)) %>%
+    drop_na
+  
+  # Bind rows
+  if((nrow(KBAAction_ongoing) > 0) & (nrow(KBAAction_needed))){
+    KBAAction <- bind_rows(KBAAction_ongoing, KBAAction_needed)
+  }else if(nrow(KBAAction_ongoing) > 0){
+    KBAAction <- KBAAction_ongoing
+  }else{
+    KBAAction <- KBAAction_needed
+  }
+  rm(KBAAction_ongoing, KBAAction_needed)
+  
+  # Add missing columns
+  KBAAction %<>%
+    mutate(KBAActionID = 1:nrow(.),
+           KBASiteID = KBASite$KBASiteID) %>%
+    relocate(KBAActionID, KBASiteID, before=OngoingOrNeeded)
+  
+  # Save
+  arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/KBA-EBAR_TrialIslands.gdb/KBAAction", KBAAction, overwrite = T)
+  
+  # SiteCitations
+  # TO DO: Implement
+  
+  # SpeciesAtSite
+  # Filter only species that should be shared
+  SpeciesAtSite <- speciesAtSite %>%
+    filter(meetscriteria == "Y")
+  # TO DO: Implement filter based on PresentAtSite, species sensitivity, etc.
+  
+  # Format
+  SpeciesAtSite %<>% select(speciesatsiteid, kbasiteid, speciesid) %>%
+    rename(SpeciesAtSiteID = speciesatsiteid,
+           KBASiteID = kbasiteid,
+           SpeciesID = speciesid) %>%
+    left_join(., species[,c("SpeciesID", "NATIONAL_SCIENTIFIC_NAME")]) %>%
+    left_join(., criteriaBySpecies) %>%
+    mutate(A1a = ifelse(A1a == 1, "A1a", NA),
+           A1b = ifelse(A1b == 1, "A1b", NA),
+           A1c = ifelse(A1c == 1, "A1c", NA),
+           A1d = ifelse(A1d == 1, "A1d", NA),
+           A1e = ifelse(A1e == 1, "A1e", NA),
+           B1 = ifelse(B1 == 1, "B1", NA),
+           D1a = ifelse(D1a == 1, "D1a", NA),
+           D1b = ifelse(D1b == 1, "D1b", NA),
+           D2 = ifelse(D2 == 1, "D2", NA),
+           D3 = ifelse(D3 == 1, "D3", NA)) %>%
+    mutate(GlobalCriteria = sapply(1:nrow(.), function(x) paste(c(A1a[x], A1b[x], A1c[x], A1d[x], A1e[x], B1[x], D1a[x], D1b[x], D2[x], D3[x])[which(!is.na(c(A1a[x], A1b[x], A1c[x], A1d[x], A1e[x], B1[x], D1a[x], D1b[x], D2[x], D3[x])))], collapse='; ')),
+           NationalCriteria = NA) %>%
+    select(SpeciesAtSiteID, KBASiteID, SpeciesID, GlobalCriteria, NationalCriteria)
+  
+  # Save
+  arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/KBA-EBAR_TrialIslands.gdb/SpeciesAtSite", SpeciesAtSite, overwrite=T)
+  
+  # SpeciesAssessment
+  # Get the data from the proposal form
+  SpeciesAssessment <- left_join(speciesSite, speciesGlobal, by=c("Species", "Scientific name", "Assessment parameter"))
+  
+  # Add SpeciesAtSiteID
+  SpeciesAssessment %<>%
+    left_join(., species[,c("SpeciesID", "NATIONAL_SCIENTIFIC_NAME")], by=c("Scientific name" = "NATIONAL_SCIENTIFIC_NAME")) %>%
+    mutate(SpeciesAtSiteID = sapply(SpeciesID, function(x) ifelse(length(SpeciesAtSite$SpeciesAtSiteID[which(SpeciesAtSite$SpeciesID==x)])==0, NA, SpeciesAtSite$SpeciesAtSiteID[which(SpeciesAtSite$SpeciesID==x)])))
+  
+  # Remove species that don't meet criteria
+  SpeciesAssessment %<>% filter(!is.na(SpeciesAtSiteID))
+  
+  # Format
+  SpeciesAssessment %<>%
+    mutate(SpeciesAssessmentID = 1:nrow(.)) %>%
+    relocate(SpeciesAssessmentID, SpeciesAtSiteID, before = Species) %>%
+    select(-c(SpeciesID, Species, "Scientific name"))
 }
-rm(KBAAction_ongoing, KBAAction_needed)
-
-      # Add missing columns
-KBAAction %<>%
-  mutate(KBAActionID = 1:nrow(.),
-         KBASiteID = KBASite$KBASiteID) %>%
-  relocate(KBAActionID, KBASiteID, before=OngoingOrNeeded)
-
-      # Save
-arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/KBA-EBAR_TrialIslands.gdb/KBAAction", KBAAction, overwrite = T)
-
-# SiteCitations
-# TO DO: Implement
-
-# SpeciesAtSite
-      # Filter only species that should be shared
-SpeciesAtSite <- speciesAtSite %>%
-  filter(meetscriteria == "Y")
-# TO DO: Implement filter based on PresentAtSite, species sensitivity, etc.
-
-      # Format
-SpeciesAtSite %<>% select(speciesatsiteid, kbasiteid, speciesid) %>%
-  rename(SpeciesAtSiteID = speciesatsiteid,
-         KBASiteID = kbasiteid,
-         SpeciesID = speciesid) %>%
-  left_join(., species[,c("SpeciesID", "NATIONAL_SCIENTIFIC_NAME")]) %>%
-  left_join(., criteriaBySpecies) %>%
-  mutate(A1a = ifelse(A1a == 1, "A1a", NA),
-         A1b = ifelse(A1b == 1, "A1b", NA),
-         A1c = ifelse(A1c == 1, "A1c", NA),
-         A1d = ifelse(A1d == 1, "A1d", NA),
-         A1e = ifelse(A1e == 1, "A1e", NA),
-         B1 = ifelse(B1 == 1, "B1", NA),
-         D1a = ifelse(D1a == 1, "D1a", NA),
-         D1b = ifelse(D1b == 1, "D1b", NA),
-         D2 = ifelse(D2 == 1, "D2", NA),
-         D3 = ifelse(D3 == 1, "D3", NA)) %>%
-  mutate(GlobalCriteria = sapply(1:nrow(.), function(x) paste(c(A1a[x], A1b[x], A1c[x], A1d[x], A1e[x], B1[x], D1a[x], D1b[x], D2[x], D3[x])[which(!is.na(c(A1a[x], A1b[x], A1c[x], A1d[x], A1e[x], B1[x], D1a[x], D1b[x], D2[x], D3[x])))], collapse='; ')),
-         NationalCriteria = NA) %>%
-  select(SpeciesAtSiteID, KBASiteID, SpeciesID, GlobalCriteria, NationalCriteria)
-  
-      # Save
-arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/KBA-EBAR_TrialIslands.gdb/SpeciesAtSite", SpeciesAtSite, overwrite=T)
-
-# SpeciesAssessment
-      # Get the data from the proposal form
-SpeciesAssessment <- left_join(speciesSite, speciesGlobal, by=c("Species", "Scientific name", "Assessment parameter"))
-
-      # Add SpeciesAtSiteID
-SpeciesAssessment %<>%
-  left_join(., species[,c("SpeciesID", "NATIONAL_SCIENTIFIC_NAME")], by=c("Scientific name" = "NATIONAL_SCIENTIFIC_NAME")) %>%
-  mutate(SpeciesAtSiteID = sapply(SpeciesID, function(x) ifelse(length(SpeciesAtSite$SpeciesAtSiteID[which(SpeciesAtSite$SpeciesID==x)])==0, NA, SpeciesAtSite$SpeciesAtSiteID[which(SpeciesAtSite$SpeciesID==x)])))
-
-      # Remove species that don't meet criteria
-SpeciesAssessment %<>% filter(!is.na(SpeciesAtSiteID))
-
-      # Format
-SpeciesAssessment %<>%
-  mutate(SpeciesAssessmentID = 1:nrow(.)) %>%
-  relocate(SpeciesAssessmentID, SpeciesAtSiteID, before = Species) %>%
-  select(-c(SpeciesID, Species, "Scientific name"))
