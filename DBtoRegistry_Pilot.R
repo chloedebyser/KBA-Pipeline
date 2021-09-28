@@ -2,86 +2,111 @@
 #### Wildlife Conservation Society - 2021
 #### Script by Chloé Debyser
 
-#### KBA-EBAR to KBA Registry - Trial Islands Pilot
+#### KBA-EBAR to KBA Registry - Trial Islands & Yukon Pilot
 
-#### Format Data - For Birds Canada database ####
+#### Workspace ####
+# Packages
+library(openxlsx)
+library(tidyverse)
+library(magrittr)
+library(sf)
+library(arcgisbinding)
+arc.check_product()
+library(stringi)
+
+# Input parameters
+inputDB <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBA-EBAR_Pilot.gdb"
+outputDB <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBARegistry_Pilot.gdb"
+
+# Remove the output geodatabase, to start fresh
+arc.delete(dirname("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBARegistry_Pilot.gdb/KBA_Status"))
+
+# Data
+      # WCSC-BC crosswalk
+crosswalk <- read.xlsx("G:/My Drive/KBA Canada Team/1. Source Datasets/Wildlife Conservation Society Canada/BirdsCanada-WCSC_DatabaseCrosswalk.xlsx")
+Layer_BC <- crosswalk[2:nrow(crosswalk), 2]
+Layer_WCSC <- crosswalk[2:nrow(crosswalk), 8]
+Name_BC <- crosswalk[2:nrow(crosswalk), 3]
+Name_WCSC <- crosswalk[2:nrow(crosswalk), 9]
+crosswalk <- data.frame(Layer_BC = Layer_BC, Name_BC = Name_BC, Layer_WCSC = Layer_WCSC, Name_WCSC = Name_WCSC) %>%
+  filter_all(any_vars(!is.na(.)))
+
+      # Input Database
+KBASite <- arc.open(paste0(inputDB, "/KBASite")) %>%
+  arc.select() %>%
+  arc.data2sp() %>%
+  st_as_sf() %>%
+  arrange(StatusChangeDate) %>%
+  mutate(SiteCode = 1:nrow(.)) # Add temporary site codes
+
+      # Lookup tables
+KBA_Status <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/KBA_Status.csv", sep="\t", fileEncoding = "UTF-8-BOM")
+KBA_Province <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/KBA_Province.csv", sep=",", fileEncoding = "UTF-8-BOM")
+
+#### KBA-EBAR database to KBA Registry ####
 # KBA_Status
-# Create
-KBA_Status <- data.frame(Status_EN = KBASite$KBALevel) %>%
-  mutate(Status_FR = NA,
-         StatusID = 1:nrow(.)) %>%
-  relocate(StatusID, before = Status_EN)
-
-# Save
-arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/KBA_Status", KBA_Status)
+arc.write(paste0(outputDB, "/KBA_Status"), KBA_Status, overwrite = T)
 
 # KBA_Province
-# Create
-KBA_Province <- data.frame(Province_EN = KBASite$Jurisdiction) %>%
-  mutate(Province_FR = NA,
-         Abbreviation = NA,
-         ProvinceID = 1:nrow(.)) %>%
-  relocate(ProvinceID, before=Province_EN)
-
-# Save
-arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/KBA_Province", KBA_Province)
+arc.write(paste0(outputDB, "/KBA_Province"), KBA_Province, overwrite = T)
 
 # KBA_ProtectedArea
-# Create
+      # Create
 KBA_ProtectedArea <- KBASite %>%
+  filter(!is.na(ProtectedAreas_EN) | !is.na(ProtectedAreas_FR)) %>% # Only retain sites that have protected area information
   st_drop_geometry() %>%
   select(SiteCode, ProtectedAreas_EN, ProtectedAreas_FR, PercentProtected) %>%
-  mutate(ProtectedAreaID = 1:nrow(.),
+  mutate(ProtectedAreaID = ifelse(nrow(.)>0, 1:nrow(.), NA),
          IUCNCat = NA) %>%
   rename(SiteID = SiteCode,
          PercentCover = PercentProtected,
          ProtectedArea_EN = ProtectedAreas_EN,
          ProtectedArea_FR = ProtectedAreas_FR) %>%
+  mutate(PercentCover = gsub(" - completely unprotected", "", PercentCover)) %>%
+  mutate(PercentCover = gsub(" - completely protected", "", PercentCover)) %>%
   select(ProtectedAreaID, SiteID, ProtectedArea_EN, ProtectedArea_FR, IUCNCat, PercentCover)
 
-# Save
-arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/KBA_ProtectedArea", KBA_ProtectedArea)
+      # Save
+arc.write(paste0(outputDB, "/KBA_ProtectedArea"), KBA_ProtectedArea, overwrite = T)
 
-# KBA_Site and KBA_Website
-# Subset the data, to grab only information that can be shared
-# TO DO: Implement this filtering using SiteStatus, etc.
-
-# Columns to share
-KBA_Site_cols <- c("SiteCode", "WDKBAID", "NationalName", "KBALevel", "StatusChangeDate", "Jurisdiction", "SiteDescription_EN", "SiteDescription_FR", "AdditionalBiodiversity_EN", "AdditionalBiodiversity_FR", "CustomaryJurisdiction_EN", "CustomaryJurisdiction_FR", "ProtectedAreas_EN", "ProtectedAreas_FR", "PercentProtected", "OECMsAtSite_EN", "OECMsAtSite_FR", "Latitude", "Longitude", "AltitudeMin", "AltitudeMax", "Area", "geometry")
-
-# Select columns
+# KBA_Site
+      # Create
 KBA_Site <- KBASite %>%
-  select(all_of(KBA_Site_cols))
-
-# Rename columns
-KBA_Site_cols_newName <- crosswalk %>%
-  filter(Name_WCSC %in% KBA_Site_cols) %>%
-  arrange(factor(Name_WCSC, levels = KBA_Site_cols)) %>%
-  pull(Name_BC)
-colnames(KBA_Site) <- KBA_Site_cols_newName
-
-# Add missing columns
-KBA_Site %<>%
-  mutate(StatusID = KBA_Status$StatusID[which(KBA_Status$Status_EN == Status_EN)]) %>%
-  select(-Status_EN) %>%
-  mutate(ProvinceID = KBA_Province$ProvinceID[which(KBA_Province$Province_EN == Province_EN)]) %>%
-  select(-Province_EN) %>%
+  filter(SiteStatus == 6) %>% # Only retain sites with SiteStatus = 6 (Accepted)
+  rename(SiteID = SiteCode,
+         Name_EN = NationalName,
+         Assessed = StatusChangeDate,
+         AltMin = AltitudeMin,
+         AltMax = AltitudeMax) %>%
   mutate(SiteCode = NA,
-         Name_FR = NA)
+         Name_FR = Name_EN,
+         Status_EN = ifelse(grepl("Global", KBALevel), "Global", "National")) %>%
+  left_join(., KBA_Province, by=c("Jurisdiction" = "Province_EN")) %>%
+  left_join(., KBA_Status, by=c("Status_EN" = "Status_EN")) %>%
+  select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Site") %>% pull(Name_BC)))
 
-# Create KBA_Website, and remove corresponding columns from KBA_Site
-KBA_Website <- KBA_Site %>%
+      # Save
+arc.write(paste0(outputDB, "/KBA_Site"), KBA_Site, overwrite = T)
+
+# KBA_Website
+      # Create
+KBA_Website <- KBASite %>%
+  filter(SiteStatus == 6) %>% # Only retain sites with SiteStatus = 6 (Accepted)
   st_drop_geometry() %>%
-  select(SiteID, SiteDescription_EN, SiteDescription_FR, BiodiversitySummary_EN, BiodiversitySummary_FR, CustomaryJurisdiction_EN, CustomaryJurisdiction_FR) %>%
+  rename(SiteID = SiteCode,
+         BiodiversitySummary_EN = AdditionalBiodiversity_EN,
+         BiodiversitySummary_FR = AdditionalBiodiversity_FR) %>%
   mutate(Conservation_EN = NA,
          Conservation_FR = NA) %>%
-  relocate(c(Conservation_EN, Conservation_FR), .before=CustomaryJurisdiction_EN)
-KBA_Site %<>% select(SiteID, SiteCode, WDKBAID, StatusID, Name_EN, Name_FR, ProvinceID, Latitude, Longitude, AltMin, AltMax, Area, Assessed, geometry)
+  select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Website") %>% pull(Name_BC)))
 
-# Save both
-arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/KBA_Site", KBA_Site)
-arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/KBA_Website", KBA_Website)
+      # Save
+arc.write(paste0(outputDB, "/KBA_Website"), KBA_Website, overwrite = T)
 
+
+
+
+# PICK UP HERE
 # System
 # Create
 System <- data.frame(Type_EN = unlist(strsplit(KBASite$Systems, "; "))) %>%
