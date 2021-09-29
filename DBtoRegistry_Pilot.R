@@ -39,9 +39,20 @@ KBASite <- arc.open(paste0(inputDB, "/KBASite")) %>%
   arrange(StatusChangeDate) %>%
   mutate(SiteCode = 1:nrow(.)) # Add temporary site codes
 
+KBAThreat <- arc.open(paste0(inputDB, "/KBAThreat")) %>%
+  arc.select()
+
       # Lookup tables
 KBA_Status <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/KBA_Status.csv", sep="\t", fileEncoding = "UTF-8-BOM")
 KBA_Province <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/KBA_Province.csv", sep=",", fileEncoding = "UTF-8-BOM")
+Threats <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/Threats.csv", sep="\t", fileEncoding = "UTF-8-BOM")
+
+#### Only retain information pertaining to ACCEPTED sites ####
+# KBASite
+KBASite %<>% filter(SiteStatus == 6) # Only retain sites with SiteStatus = 6 (Accepted)
+
+# KBAThreat
+KBAThreat %<>% filter(KBASiteID %in% KBASite$KBASiteID)
 
 #### KBA-EBAR database to KBA Registry ####
 # KBA_Status
@@ -72,7 +83,6 @@ arc.write(paste0(outputDB, "/KBA_ProtectedArea"), KBA_ProtectedArea, overwrite =
 # KBA_Site
       # Create
 KBA_Site <- KBASite %>%
-  filter(SiteStatus == 6) %>% # Only retain sites with SiteStatus = 6 (Accepted)
   rename(SiteID = SiteCode,
          Name_EN = NationalName,
          Assessed = StatusChangeDate,
@@ -91,7 +101,6 @@ arc.write(paste0(outputDB, "/KBA_Site"), KBA_Site, overwrite = T)
 # KBA_Website
       # Create
 KBA_Website <- KBASite %>%
-  filter(SiteStatus == 6) %>% # Only retain sites with SiteStatus = 6 (Accepted)
   st_drop_geometry() %>%
   rename(SiteID = SiteCode,
          BiodiversitySummary_EN = AdditionalBiodiversity_EN,
@@ -103,7 +112,29 @@ KBA_Website <- KBASite %>%
       # Save
 arc.write(paste0(outputDB, "/KBA_Website"), KBA_Website, overwrite = T)
 
+# Threats
+arc.write(paste0(outputDB, "/Threats"), Threats, overwrite = T)
 
+# KBA_Threats
+      # Create
+KBA_Threats <- KBAThreat %>%
+  left_join(., KBASite[,c("KBASiteID", "SiteCode")], by=c("KBASiteID" = "KBASiteID")) %>%
+  rename(SiteID = SiteCode) %>%
+  mutate(ThreatsSiteID = NA,
+         LastLevel = sapply(1:nrow(.), function(x) sum(!is.na(.[x, c("Level1", "Level2", "Level3")]))),
+         Threat_EN = ifelse(LastLevel == 1,
+                            Level1,
+                            ifelse(LastLevel == 2,
+                                   Level2,
+                                   Level3)),
+         ThreatCode = sapply(Threat_EN, function(x) substr(x, 1, stri_locate_all(pattern=" ", x, fixed=T)[[1]][1,1]-1))) %>%
+  left_join(., Threats[,c("ThreatID", "ThreatCode")], by=c("ThreatCode" = "ThreatCode")) %>%
+  select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Threats") %>% pull(Name_BC))) %>%
+  distinct() %>%
+  mutate(ThreatsSiteID = 1:nrow(.))
+
+      # Save
+arc.write(paste0(outputDB, "/KBA_Threats"), KBA_Threats, overwrite = T)
 
 # # PICK UP HERE
 # # System
@@ -146,46 +177,6 @@ arc.write(paste0(outputDB, "/KBA_Website"), KBA_Website, overwrite = T)
 # 
 # # Save
 # arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/KBA_Habitat", KBA_Habitat)
-# 
-# # Threats
-# # Create
-# Threats <- KBAThreat %>%
-#   mutate(LastLevel = sapply(1:nrow(KBAThreat), function(x) sum(!is.na(KBAThreat[x, c("Level1", "Level2", "Level3")])))) %>%
-#   mutate(Threat_EN = ifelse(LastLevel == 1,
-#                             Level1,
-#                             ifelse(LastLevel == 2,
-#                                    Level2,
-#                                    Level3))) %>%
-#   select(Threat_EN) %>%
-#   distinct() %>%
-#   mutate(Threat_FR = NA,
-#          ThreatCode = sapply(Threat_EN, function(x) substr(x, 1, stri_locate_all(pattern=" ", x, fixed=T)[[1]][1,1]-1)),
-#          Threat_EN = sapply(Threat_EN, function(x) substr(x, stri_locate_all(pattern=" ", x, fixed=T)[[1]][1,1]+1, nchar(x))),
-#          ThreatID = 1:nrow(.)) %>%
-#   select(ThreatID, ThreatCode, Threat_EN, Threat_FR)
-# 
-# # Save
-# arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/Threats", Threats)
-# 
-# # KBA_Threats
-# # Create
-# KBA_Threats <- KBAThreat %>%
-#   mutate(LastLevel = sapply(1:nrow(KBAThreat), function(x) sum(!is.na(KBAThreat[x, c("Level1", "Level2", "Level3")])))) %>%
-#   mutate(Threat_EN = ifelse(LastLevel == 1,
-#                             Level1,
-#                             ifelse(LastLevel == 2,
-#                                    Level2,
-#                                    Level3))) %>%
-#   mutate(ThreatCode = sapply(Threat_EN, function(x) substr(x, 1, stri_locate_all(pattern=" ", x, fixed=T)[[1]][1,1]-1))) %>%
-#   select(ThreatCode, Timing, Scope, Severity) %>%
-#   distinct() %>%
-#   mutate(ThreatID = Threats$ThreatID[which(Threats$ThreatCode == ThreatCode)],
-#          SiteID = siteCode,
-#          ThreatsSiteID = 1:nrow(.)) %>%
-#   select(ThreatsSiteID, SiteID, ThreatID, Timing, Scope, Severity)
-# 
-# # Save
-# arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/KBA_Threats", KBA_Threats)
 # 
 # # Conservation
 # # Create
