@@ -3,6 +3,7 @@
 #### Script by Chloé Debyser
 
 #### KBA-EBAR to KBA Registry - Trial Islands & Yukon Pilot
+#### Needed: Way to assign unique IDs (e.g. ThreatsSiteID, ConservationSiteID)
 
 #### Workspace ####
 # Packages
@@ -42,10 +43,14 @@ KBASite <- arc.open(paste0(inputDB, "/KBASite")) %>%
 KBAThreat <- arc.open(paste0(inputDB, "/KBAThreat")) %>%
   arc.select()
 
+KBAAction <- arc.open(paste0(inputDB, "/KBAAction")) %>%
+  arc.select()
+
       # Lookup tables
 KBA_Status <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/KBA_Status.csv", sep="\t", fileEncoding = "UTF-8-BOM")
 KBA_Province <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/KBA_Province.csv", sep=",", fileEncoding = "UTF-8-BOM")
 Threats <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/Threats.csv", sep="\t", fileEncoding = "UTF-8-BOM")
+Conservation <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/Conservation.csv", sep=",", fileEncoding = "UTF-8-BOM")
 
 #### Only retain information pertaining to ACCEPTED sites ####
 # KBASite
@@ -54,6 +59,9 @@ KBASite %<>% filter(SiteStatus == 6) # Only retain sites with SiteStatus = 6 (Ac
 # KBAThreat
 KBAThreat %<>% filter(KBASiteID %in% KBASite$KBASiteID)
 
+# KBAAction
+KBAAction %<>% filter(KBASiteID %in% KBASite$KBASiteID)
+  
 #### KBA-EBAR database to KBA Registry ####
 # KBA_Status
 arc.write(paste0(outputDB, "/KBA_Status"), KBA_Status, overwrite = T)
@@ -92,7 +100,7 @@ KBA_Site <- KBASite %>%
          Name_FR = Name_EN,
          Status_EN = ifelse(grepl("Global", KBALevel), "Global", "National")) %>%
   left_join(., KBA_Province, by=c("Jurisdiction" = "Province_EN")) %>%
-  left_join(., KBA_Status, by=c("Status_EN" = "Status_EN")) %>%
+  left_join(., KBA_Status, by="Status_EN") %>%
   select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Site") %>% pull(Name_BC)))
 
       # Save
@@ -118,7 +126,7 @@ arc.write(paste0(outputDB, "/Threats"), Threats, overwrite = T)
 # KBA_Threats
       # Create
 KBA_Threats <- KBAThreat %>%
-  left_join(., KBASite[,c("KBASiteID", "SiteCode")], by=c("KBASiteID" = "KBASiteID")) %>%
+  left_join(., KBASite[,c("KBASiteID", "SiteCode")], by="KBASiteID") %>%
   rename(SiteID = SiteCode) %>%
   mutate(ThreatsSiteID = NA,
          LastLevel = sapply(1:nrow(.), function(x) sum(!is.na(.[x, c("Level1", "Level2", "Level3")]))),
@@ -128,13 +136,30 @@ KBA_Threats <- KBAThreat %>%
                                    Level2,
                                    Level3)),
          ThreatCode = sapply(Threat_EN, function(x) substr(x, 1, stri_locate_all(pattern=" ", x, fixed=T)[[1]][1,1]-1))) %>%
-  left_join(., Threats[,c("ThreatID", "ThreatCode")], by=c("ThreatCode" = "ThreatCode")) %>%
+  left_join(., Threats[,c("ThreatID", "ThreatCode")], by="ThreatCode") %>%
   select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Threats") %>% pull(Name_BC))) %>%
   distinct() %>%
   mutate(ThreatsSiteID = 1:nrow(.))
 
       # Save
 arc.write(paste0(outputDB, "/KBA_Threats"), KBA_Threats, overwrite = T)
+
+# Conservation
+arc.write(paste0(outputDB, "/Conservation"), Conservation, overwrite = T)
+
+# KBA_Conservation
+      # Create
+KBA_Conservation <- KBAAction %>%
+  rename(Ongoing_Needed = OngoingOrNeeded) %>%
+  left_join(., KBASite[,c("KBASiteID", "SiteCode")], by="KBASiteID") %>%
+  rename(SiteID = SiteCode) %>%
+  mutate(ConservationSiteID = 1:nrow(.),
+         ConservationCode = sapply(ConservationAction, function(x) as.double(substr(x, 1, stri_locate_all(pattern=" ", x, fixed=T)[[1]][1,1]-1)))) %>%
+  left_join(., Conservation[,c("ConservationID", "ConservationCode")], by="ConservationCode") %>%
+  select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Conservation") %>% pull(Name_BC)))
+
+      # Save
+arc.write(paste0(outputDB, "/KBA_Conservation"), KBA_Conservation, overwrite = T)
 
 # # PICK UP HERE
 # # System
@@ -177,31 +202,3 @@ arc.write(paste0(outputDB, "/KBA_Threats"), KBA_Threats, overwrite = T)
 # 
 # # Save
 # arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/KBA_Habitat", KBA_Habitat)
-# 
-# # Conservation
-# # Create
-# Conservation <- KBAAction %>%
-#   select(ConservationAction) %>%
-#   distinct() %>%
-#   mutate(ConservationCode = sapply(ConservationAction, function(x) substr(x, 1, stri_locate_all(pattern = ' ', x, fixed = TRUE)[[1]][1,1]-1)),
-#          ConservationAction_EN = sapply(ConservationAction, function(x) substr(x, stri_locate_all(pattern = ' ', x, fixed = TRUE)[[1]][1,1]+1, nchar(x))),
-#          ConservationAction_FR = NA,
-#          ConservationID = 1:nrow(.)) %>%
-#   select(ConservationID, ConservationCode, ConservationAction_EN, ConservationAction_FR)
-# 
-# # Save
-# arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/Conservation", Conservation)
-# 
-# # KBA_Conservation
-# # Create
-# KBA_Conservation <- KBAAction %>%
-#   select(OngoingOrNeeded, ConservationAction) %>%
-#   mutate(ConservationID = Conservation$ConservationID[which(paste(Conservation$ConservationCode, Conservation$ConservationAction_EN, sep=" ") == ConservationAction)],
-#          SiteID = siteCode,
-#          ConservationSiteID = 1:nrow(.)) %>%
-#   rename(Ongoing_Needed = OngoingOrNeeded) %>%
-#   select(ConservationSiteID, SiteID, ConservationID, Ongoing_Needed)
-# 
-# # Save
-# arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/KBA_Conservation", KBA_Conservation)
-# 
