@@ -153,6 +153,7 @@ KBA_Conservation <- KBAAction %>%
   rename(Ongoing_Needed = OngoingOrNeeded) %>%
   left_join(., KBASite[,c("KBASiteID", "SiteCode")], by="KBASiteID") %>%
   rename(SiteID = SiteCode) %>%
+  filter(!ConservationAction == "None") %>%
   mutate(ConservationSiteID = 1:nrow(.),
          ConservationCode = sapply(ConservationAction, function(x) as.double(substr(x, 1, stri_locate_all(pattern=" ", x, fixed=T)[[1]][1,1]-1)))) %>%
   left_join(., Conservation[,c("ConservationID", "ConservationCode")], by="ConservationCode") %>%
