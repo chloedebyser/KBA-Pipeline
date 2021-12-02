@@ -130,6 +130,10 @@ KBA_Threats <- KBAThreat %>%
 arc.write(paste0(outputDB, "/KBA_Threats"), KBA_Threats, overwrite = T)
 
 # Conservation
+      # Create
+Conservation %<>% mutate(ConservationCode = as.character(format(ConservationCode, digits=2)))
+
+      # Save
 arc.write(paste0(outputDB, "/Conservation"), Conservation, overwrite = T)
 
 # KBA_Conservation
@@ -140,7 +144,7 @@ KBA_Conservation <- KBAAction %>%
   left_join(., st_drop_geometry(KBA_Site[,c("SiteID", "SiteCode")]), by="SiteCode") %>%
   mutate(ConservationSiteID = 1:nrow(.),
          ConservationAction = ifelse(ConservationAction == "None", "0.0 None", ConservationAction),
-         ConservationCode = sapply(ConservationAction, function(x) as.double(substr(x, 1, stri_locate_all(pattern=" ", x, fixed=T)[[1]][1,1]-1)))) %>%
+         ConservationCode = sapply(ConservationAction, function(x) substr(x, 1, stri_locate_all(pattern=" ", x, fixed=T)[[1]][1,1]-1))) %>%
   left_join(., Conservation[,c("ConservationID", "ConservationCode")], by="ConservationCode") %>%
   select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Conservation") %>% pull(Name_BC)))
 
