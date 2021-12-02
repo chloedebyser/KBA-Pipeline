@@ -20,7 +20,7 @@ inputDB <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analys
 outputDB <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBARegistry_Pilot.gdb"
 
 # Remove the output geodatabase, to start fresh
-arc.delete(dirname("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBARegistry_Pilot.gdb/KBA_Status"))
+arc.delete(dirname("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBARegistry_Pilot.gdb/KBA_Level"))
 
 # Data
       # WCSC-BC crosswalk
@@ -35,10 +35,7 @@ crosswalk <- data.frame(Layer_BC = Layer_BC, Name_BC = Name_BC, Layer_WCSC = Lay
       # Input Database
 KBASite <- arc.open(paste0(inputDB, "/KBASite")) %>%
   arc.select() %>%
-  arc.data2sp() %>%
-  st_as_sf() %>%
-  arrange(StatusChangeDate) %>%
-  mutate(SiteCode = 1:nrow(.)) # Add temporary site codes
+  arc.data2sf()
 
 KBAThreat <- arc.open(paste0(inputDB, "/KBAThreat")) %>%
   arc.select()
@@ -46,11 +43,15 @@ KBAThreat <- arc.open(paste0(inputDB, "/KBAThreat")) %>%
 KBAAction <- arc.open(paste0(inputDB, "/KBAAction")) %>%
   arc.select()
 
+KBACitation <- arc.open(paste0(inputDB, "/KBACitation")) %>%
+  arc.select()
+
       # Lookup tables
-KBA_Status <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/KBA_Status.csv", sep="\t", fileEncoding = "UTF-8-BOM")
-KBA_Province <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/KBA_Province.csv", sep=",", fileEncoding = "UTF-8-BOM")
-Threats <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/Threats.csv", sep="\t", fileEncoding = "UTF-8-BOM")
-Conservation <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Bird Studies Canada/LookUps_2021.09.21/Conservation.csv", sep=",", fileEncoding = "UTF-8-BOM")
+KBA_Level <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Birds Canada/LookUps_2021.09.21/KBA_Level.csv", sep=",", fileEncoding = "UTF-8-BOM")
+KBA_Province <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Birds Canada/LookUps_2021.09.21/KBA_Province.csv", sep=",", fileEncoding = "UTF-8-BOM")
+Threats <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Birds Canada/LookUps_2021.09.21/Threats.csv", sep="\t", fileEncoding = "UTF-8-BOM")
+Conservation <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Birds Canada/LookUps_2021.09.21/Conservation.csv", sep=",", fileEncoding = "UTF-8-BOM")
+System <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Birds Canada/LookUps_2021.09.21/System.csv", sep=",", fileEncoding = "UTF-8-BOM")
 
 #### Only retain information pertaining to ACCEPTED sites ####
 # KBASite
@@ -61,46 +62,30 @@ KBAThreat %<>% filter(KBASiteID %in% KBASite$KBASiteID)
 
 # KBAAction
 KBAAction %<>% filter(KBASiteID %in% KBASite$KBASiteID)
+
+# KBACitation
+KBACitation %<>% filter(KBASiteID %in% KBASite$KBASiteID)
   
 #### KBA-EBAR database to KBA Registry ####
-# KBA_Status
-arc.write(paste0(outputDB, "/KBA_Status"), KBA_Status, overwrite = T)
+# KBA_Level
+arc.write(paste0(outputDB, "/KBA_Level"), KBA_Level, overwrite = T)
 
 # KBA_Province
 arc.write(paste0(outputDB, "/KBA_Province"), KBA_Province, overwrite = T)
 
-# KBA_ProtectedArea
-      # Create
-KBA_ProtectedArea <- KBASite %>%
-  filter(!is.na(ProtectedAreas_EN) | !is.na(ProtectedAreas_FR)) %>% # Only retain sites that have protected area information
-  st_drop_geometry() %>%
-  select(SiteCode, ProtectedAreas_EN, ProtectedAreas_FR, PercentProtected) %>%
-  mutate(ProtectedAreaID = ifelse(nrow(.)>0, 1:nrow(.), NA),
-         IUCNCat = NA) %>%
-  rename(SiteID = SiteCode,
-         PercentCover = PercentProtected,
-         ProtectedArea_EN = ProtectedAreas_EN,
-         ProtectedArea_FR = ProtectedAreas_FR) %>%
-  mutate(PercentCover = gsub(" - completely unprotected", "", PercentCover)) %>%
-  mutate(PercentCover = gsub(" - completely protected", "", PercentCover)) %>%
-  select(ProtectedAreaID, SiteID, ProtectedArea_EN, ProtectedArea_FR, IUCNCat, PercentCover)
-
-      # Save
-arc.write(paste0(outputDB, "/KBA_ProtectedArea"), KBA_ProtectedArea, overwrite = T)
-
 # KBA_Site
       # Create
 KBA_Site <- KBASite %>%
-  rename(SiteID = SiteCode,
-         Name_EN = NationalName,
+  rename(Name_EN = NationalName,
          Assessed = StatusChangeDate,
          AltMin = AltitudeMin,
-         AltMax = AltitudeMax) %>%
-  mutate(SiteCode = NA,
-         Name_FR = Name_EN,
-         Status_EN = ifelse(grepl("Global", KBALevel), "Global", "National")) %>%
+         AltMax = AltitudeMax,
+         geometry = geom) %>%
+  mutate(SiteID = 1:nrow(.),
+         Name_FR = ifelse(is.na(NationalName_FR), Name_EN, NationalName_FR),
+         Level_EN = ifelse(grepl("Global", KBALevel), "Global", "National")) %>%
   left_join(., KBA_Province, by=c("Jurisdiction" = "Province_EN")) %>%
-  left_join(., KBA_Status, by="Status_EN") %>%
+  left_join(., KBA_Level, by="Level_EN") %>%
   select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Site") %>% pull(Name_BC)))
 
       # Save
@@ -110,8 +95,8 @@ arc.write(paste0(outputDB, "/KBA_Site"), KBA_Site, overwrite = T)
       # Create
 KBA_Website <- KBASite %>%
   st_drop_geometry() %>%
-  rename(SiteID = SiteCode,
-         BiodiversitySummary_EN = AdditionalBiodiversity_EN,
+  left_join(., st_drop_geometry(KBA_Site[,c("SiteID", "SiteCode")]), by="SiteCode") %>%
+  rename(BiodiversitySummary_EN = AdditionalBiodiversity_EN,
          BiodiversitySummary_FR = AdditionalBiodiversity_FR) %>%
   mutate(Conservation_EN = NA,
          Conservation_FR = NA) %>%
@@ -126,8 +111,8 @@ arc.write(paste0(outputDB, "/Threats"), Threats, overwrite = T)
 # KBA_Threats
       # Create
 KBA_Threats <- KBAThreat %>%
-  left_join(., KBASite[,c("KBASiteID", "SiteCode")], by="KBASiteID") %>%
-  rename(SiteID = SiteCode) %>%
+  left_join(., st_drop_geometry(KBASite[,c("KBASiteID", "SiteCode")]), by="KBASiteID") %>%
+  left_join(., st_drop_geometry(KBA_Site[,c("SiteID", "SiteCode")]), by="SiteCode") %>%
   mutate(ThreatsSiteID = NA,
          LastLevel = sapply(1:nrow(.), function(x) sum(!is.na(.[x, c("Level1", "Level2", "Level3")]))),
          Threat_EN = ifelse(LastLevel == 1,
@@ -151,10 +136,10 @@ arc.write(paste0(outputDB, "/Conservation"), Conservation, overwrite = T)
       # Create
 KBA_Conservation <- KBAAction %>%
   rename(Ongoing_Needed = OngoingOrNeeded) %>%
-  left_join(., KBASite[,c("KBASiteID", "SiteCode")], by="KBASiteID") %>%
-  rename(SiteID = SiteCode) %>%
-  filter(!ConservationAction == "None") %>%
+  left_join(., st_drop_geometry(KBASite[,c("KBASiteID", "SiteCode")]), by="KBASiteID") %>%
+  left_join(., st_drop_geometry(KBA_Site[,c("SiteID", "SiteCode")]), by="SiteCode") %>%
   mutate(ConservationSiteID = 1:nrow(.),
+         ConservationAction = ifelse(ConservationAction == "None", "0.0 None", ConservationAction),
          ConservationCode = sapply(ConservationAction, function(x) as.double(substr(x, 1, stri_locate_all(pattern=" ", x, fixed=T)[[1]][1,1]-1)))) %>%
   left_join(., Conservation[,c("ConservationID", "ConservationCode")], by="ConservationCode") %>%
   select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Conservation") %>% pull(Name_BC)))
@@ -162,17 +147,13 @@ KBA_Conservation <- KBAAction %>%
       # Save
 arc.write(paste0(outputDB, "/KBA_Conservation"), KBA_Conservation, overwrite = T)
 
-# # PICK UP HERE
-# # System
-# # Create
-# System <- data.frame(Type_EN = unlist(strsplit(KBASite$Systems, "; "))) %>%
-#   mutate(Type_FR = NA) %>%
-#   mutate(SystemID = 1:nrow(.)) %>%
-#   relocate(SystemID, before=Type_EN)
-# 
-# # Save
-# arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/System", System)
-# 
+# System
+arc.write(paste0(outputDB, "/System"), System, overwrite = T)
+
+# KBA_System
+
+
+
 # # Habitat
 # # Create
 # Habitat <- data.frame(Habitat_EN = KBAHabitat$Habitat) %>%
