@@ -155,8 +155,17 @@ arc.write(paste0(outputDB, "/KBA_Conservation"), KBA_Conservation, overwrite = T
 arc.write(paste0(outputDB, "/System"), System, overwrite = T)
 
 # KBA_System
-
-
+      # Create
+KBA_System <- KBASite %>%
+  st_drop_geometry() %>%
+  left_join(., st_drop_geometry(KBA_Site[,c("SiteID", "SiteCode")]), by="SiteCode") %>%
+  separate_rows(., Systems, sep="; ") %>%
+  left_join(., System[,c("SystemID", "Type_EN")], by=c("Systems" = "Type_EN")) %>%
+  mutate(SystemSiteID = 1:nrow(.)) %>%
+  select(all_of(crosswalk %>% filter(Layer_BC == "KBA_System") %>% pull(Name_BC)))
+  
+      # Save
+arc.write(paste0(outputDB, "/KBA_System"), KBA_System, overwrite = T)
 
 # # Habitat
 # # Create
