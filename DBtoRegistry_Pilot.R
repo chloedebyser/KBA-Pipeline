@@ -43,6 +43,9 @@ KBAThreat <- arc.open(paste0(inputDB, "/KBAThreat")) %>%
 KBAAction <- arc.open(paste0(inputDB, "/KBAAction")) %>%
   arc.select()
 
+KBAHabitat <- arc.open(paste0(inputDB, "/KBAHabitat")) %>%
+  arc.select()
+
 KBACitation <- arc.open(paste0(inputDB, "/KBACitation")) %>%
   arc.select()
 
@@ -52,6 +55,7 @@ KBA_Province <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Birds C
 Threats <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Birds Canada/LookUps_2021.09.21/Threats.csv", sep="\t", fileEncoding = "UTF-8-BOM")
 Conservation <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Birds Canada/LookUps_2021.09.21/Conservation.csv", sep=",", fileEncoding = "UTF-8-BOM")
 System <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Birds Canada/LookUps_2021.09.21/System.csv", sep=",", fileEncoding = "UTF-8-BOM")
+Habitat <- read.xlsx("G:/My Drive/KBA Canada Team/1. Source Datasets/Birds Canada/LookUps_2021.09.21/Habitat.xlsx")
 
 #### Only retain information pertaining to ACCEPTED sites ####
 # KBASite
@@ -62,6 +66,9 @@ KBAThreat %<>% filter(KBASiteID %in% KBASite$KBASiteID)
 
 # KBAAction
 KBAAction %<>% filter(KBASiteID %in% KBASite$KBASiteID)
+
+# KBAHabitat
+KBAHabitat %<>% filter(KBASiteID %in% KBASite$KBASiteID)
 
 # KBACitation
 KBACitation %<>% filter(KBASiteID %in% KBASite$KBASiteID)
@@ -167,33 +174,23 @@ KBA_System <- KBASite %>%
       # Save
 arc.write(paste0(outputDB, "/KBA_System"), KBA_System, overwrite = T)
 
-# # Habitat
-# # Create
-# Habitat <- data.frame(Habitat_EN = KBAHabitat$Habitat) %>%
-#   mutate(Habitat_FR = NA,
-#          Description = NA,
-#          HabitatCode = NA,
-#          HabitatID = 1:nrow(.)) %>%
-#   mutate(SystemID = sapply(Habitat_EN, function(x) ifelse(x %in% c("Grassland", "Shrubland", "Savanna"),
-#                                                           System$SystemID[which(System$Type_EN == "Terrestrial")],
-#                                                           NA))) %>%
-#   relocate(HabitatID, SystemID, HabitatCode, before=Habitat_EN)
-# 
-# # Save
-# arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/Habitat", Habitat)
-# 
-# # KBA_Habitat
-# # Create
-# KBA_Habitat <- KBAHabitat %>%
-#   mutate(HabitatSiteID = 1:nrow(.)) %>%
-#   mutate(SiteID = siteCode) %>%
-#   rename(Habitat_EN = Habitat) %>%
-#   mutate(HabitatID = sapply(Habitat_EN, function(x) Habitat$HabitatID[which(Habitat$Habitat_EN == x)])) %>%
-#   mutate(PercentCoverMin = sapply(PercentCover, function(x) substr(x, 1, stri_locate_all(pattern = '-', x, fixed = TRUE)[[1]][1,1]-1))) %>%
-#   mutate(PercentCoverMin = as.integer(PercentCoverMin)) %>%
-#   mutate(PercentCoverMax = sapply(PercentCover, function(x) substr(x, stri_locate_all(pattern = '-', x, fixed = TRUE)[[1]][1,1]+1, nchar(x)-1))) %>%
-#   mutate(PercentCoverMax = as.integer(PercentCoverMax)) %>%
-#   select(HabitatSiteID, SiteID, HabitatID, PercentCoverMin, PercentCoverMax)
-# 
-# # Save
-# arc.write("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline with Birds Canada/BirdsCanada_TrialIslands.gdb/KBA_Habitat", KBA_Habitat)
+# Habitat
+      # Create
+Habitat %<>% mutate(HabitatCode = as.character(format(HabitatCode, digits=3)))
+
+      # Save
+arc.write(paste0(outputDB, "/Habitat"), Habitat, overwrite = T)
+
+# KBA_Habitat
+      # Create
+KBA_Habitat <- KBAHabitat %>%
+  left_join(., st_drop_geometry(KBASite[,c("KBASiteID", "SiteCode")]), by="KBASiteID") %>%
+  left_join(., st_drop_geometry(KBA_Site[,c("SiteID", "SiteCode")]), by="SiteCode") %>%
+  mutate(HabitatSiteID = 1:nrow(.),
+         PercentCoverMin = sapply(PercentCover, function(x) as.integer(substr(x, start=1, stop=stri_locate_all(pattern="-", x, fixed=T)[[1]][1,1]-1))),
+         PercentCoverMax = sapply(PercentCover, function(x) as.integer(substr(x, start=stri_locate_all(pattern="-", x, fixed=T)[[1]][1,1]+1, stop=nchar(x)-1)))) %>%
+  left_join(., Habitat[,c("HabitatID", "Habitat_EN")], by=c("Habitat" = "Habitat_EN")) %>%
+  select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Habitat") %>% pull(Name_BC)))
+
+      # Save
+arc.write(paste0(outputDB, "/KBA_Habitat"), KBA_Habitat, overwrite = T)
