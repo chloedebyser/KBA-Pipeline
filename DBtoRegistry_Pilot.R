@@ -90,7 +90,8 @@ KBA_Site <- KBASite %>%
          geometry = geom) %>%
   mutate(SiteID = 1:nrow(.),
          Name_FR = ifelse(is.na(NationalName_FR), Name_EN, NationalName_FR),
-         Level_EN = ifelse(grepl("Global", KBALevel), "Global", "National")) %>%
+         Level_EN = ifelse(grepl("Global", KBALevel), "Global", "National"),
+         PercentProtected = NA) %>%
   left_join(., KBA_Province, by=c("Jurisdiction" = "Province_EN")) %>%
   left_join(., KBA_Level, by="Level_EN") %>%
   select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Site") %>% pull(Name_BC)))
