@@ -187,9 +187,7 @@ arc.write(paste0(outputDB, "/Habitat"), Habitat, overwrite = T)
 KBA_Habitat <- KBAHabitat %>%
   left_join(., st_drop_geometry(KBASite[,c("KBASiteID", "SiteCode")]), by="KBASiteID") %>%
   left_join(., st_drop_geometry(KBA_Site[,c("SiteID", "SiteCode")]), by="SiteCode") %>%
-  mutate(HabitatSiteID = 1:nrow(.),
-         PercentCoverMin = sapply(PercentCover, function(x) as.integer(substr(x, start=1, stop=stri_locate_all(pattern="-", x, fixed=T)[[1]][1,1]-1))),
-         PercentCoverMax = sapply(PercentCover, function(x) as.integer(substr(x, start=stri_locate_all(pattern="-", x, fixed=T)[[1]][1,1]+1, stop=nchar(x)-1)))) %>%
+  mutate(HabitatSiteID = 1:nrow(.)) %>%
   left_join(., Habitat[,c("HabitatID", "Habitat_EN")], by=c("Habitat" = "Habitat_EN")) %>%
   select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Habitat") %>% pull(Name_BC)))
 
