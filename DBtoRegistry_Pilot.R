@@ -4,6 +4,7 @@
 
 #### KBA-EBAR to KBA Registry - Trial Islands & Yukon Pilot
 #### Needed: Way to assign unique IDs (e.g. ThreatsSiteID, ConservationSiteID)
+#### Needed: Don't send global sites to Registry if they don't have a WDKBAID
 
 #### Workspace ####
 # Packages
