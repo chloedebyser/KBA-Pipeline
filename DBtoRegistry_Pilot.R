@@ -113,6 +113,19 @@ KBA_Website <- KBASite %>%
       # Save
 arc.write(paste0(outputDB, "/KBA_Website"), KBA_Website, overwrite = T)
 
+# KBA_Citations
+      # Create
+KBA_Citations <- KBACitation %>%
+  left_join(., st_drop_geometry(KBASite[,c("KBASiteID", "SiteCode")]), by="KBASiteID") %>%
+  left_join(., st_drop_geometry(KBA_Site[,c("SiteID", "SiteCode")]), by="SiteCode") %>%
+  mutate(KBACitationID = 1:nrow(.),
+         ShortReference = ShortCitation,
+         LongReference = LongCitation) %>%
+  select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Citations") %>% pull(Name_BC)))
+  
+      # Save
+arc.write(paste0(outputDB, "/KBA_Citations"), KBA_Citations, overwrite = T)
+
 # Threats
 arc.write(paste0(outputDB, "/Threats"), Threats, overwrite = T)
 
