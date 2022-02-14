@@ -12,8 +12,6 @@
 #### Needed: Add SARA_STATUS_DATE when available in BIOTICS_ELEMENT_NATIONAL
 #### Needed: Implement FootnoteID (right now it is just set to NA)
 
-#### NOTE: Save a separate feature class called InternalBoundaries for Dean, with SpeciesID, SiteID, and geometry (nothing else)
-
 #### Workspace ####
 # Packages
 library(openxlsx)
@@ -97,6 +95,11 @@ Subcriterion <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Birds C
 biotics <- arc.open(paste0(url, 'EBAR-KBA/Restricted/FeatureServer/4')) %>%
   arc.select()
 
+inputPolygon <- arc.open(paste0(url, 'EBAR-KBA/Restricted/FeatureServer/2')) %>%
+  arc.select(., where_clause = paste0("inputpolygonid IN (", paste(KBAInputPolygon$InputPolygonID, collapse = ", "), ")")) %>%
+  arc.data2sp() %>%
+  st_as_sf()
+
 #### Only retain information relevant to the Registry ####
 # KBASite
 KBASite %<>%
@@ -145,6 +148,10 @@ KBAInputPolygon %<>%
 KBACustomPolygon %<>%
   filter(SpeciesAtSiteID %in% SpeciesAtSite$SpeciesAtSiteID) %>%
   filter(SpatialScope == "S") # Only retain internal boundaries
+
+# InputPolygon
+inputPolygon %<>%
+  filter(inputpolygonid %in% KBAInputPolygon$InputPolygonID)
 
 #### KBA-EBAR database to KBA Registry ####
 # KBA_Level
@@ -455,3 +462,23 @@ KBA_SpeciesAssessments <- SpeciesAssessment %>%
 
       # Save
 arc.write(paste0(outputDB, "/KBA_SpeciesAssessments"), KBA_SpeciesAssessments, overwrite = T)
+
+# InternalBoundary
+      # Check that KBACustomPolygon is empty (because the code that deals with that feature class is not yet written)
+if(nrow(KBACustomPolygon) > 0){
+  stop("There are records in KBACustomPolygon, and the code isn't yet written for this dataset.")
+}
+
+      # Create
+InternalBoundary <- inputPolygon %>%
+  left_join(., KBAInputPolygon[,c("InputPolygonID", "SpeciesAtSiteID")], by=c("inputpolygonid" = "InputPolygonID")) %>%
+  select(SpeciesAtSiteID) %>%
+  left_join(., SpeciesAtSite[,c("SpeciesAtSiteID", "KBASiteID", "SpeciesID")], by="SpeciesAtSiteID") %>%
+  left_join(., st_drop_geometry(KBASite[,c("KBASiteID", "SiteCode")]), by="KBASiteID") %>%
+  left_join(., st_drop_geometry(KBA_Site[,c("SiteCode", "SiteID")]), by="SiteCode") %>%
+  select(SiteID, SpeciesID, geometry) %>%
+  arrange(SiteID, SpeciesID) %>%
+  mutate(InternalBoundaryID = 1:nrow(.), .before=SiteID)
+      
+      # Save
+arc.write(paste0(outputDB, "/InternalBoundary"), InternalBoundary, overwrite = T, validate = T)
