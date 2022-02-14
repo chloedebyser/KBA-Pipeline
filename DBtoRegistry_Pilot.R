@@ -10,6 +10,9 @@
 #### Needed: Filter internal boundaries
 #### Needed: Find substitutes for everything that is hard coded
 #### Needed: Add SARA_STATUS_DATE when available in BIOTICS_ELEMENT_NATIONAL
+#### Needed: Implement FootnoteID (right now it is just set to NA)
+
+#### NOTE: Save a separate feature class called InternalBoundaries for Dean, with SpeciesID, SiteID, and geometry (nothing else)
 
 #### Workspace ####
 # Packages
@@ -372,7 +375,7 @@ relevantReferenceEstimates <- SpeciesAssessment %>%
   arrange(SpeciesID, KBALevel, desc(DateAssessed)) %>%
   filter(row_number()==1) # Only retain the most recent SpeciesAssessment per species and per KBALevel
 
-            # Add the estimates the Species table
+            # Add the estimates to the Species table
 Species <- relevantReferenceEstimates %>%
   select(SpeciesID, KBALevel, ReferenceEstimate_Best, ReferenceEstimate_Sources) %>%
   rename(PopulationSize = ReferenceEstimate_Best,
@@ -403,3 +406,52 @@ Species_Citation <- PopSizeCitation %>%
 
       # Save
 arc.write(paste0(outputDB, "/Species_Citation"), Species_Citation, overwrite = T)
+
+# Criterion
+arc.write(paste0(outputDB, "/Criterion"), Criterion, overwrite = T)
+
+# Subcriterion
+      # Create intermediate tibble for use in KBA_SpeciesAssessments computation
+Subcriterion_inter <- Subcriterion %>%
+  left_join(., KBA_Level, by="LevelID") %>%
+  mutate(Level_EN = sapply(Level_EN, function(x) tolower(substr(x, start=1, stop=1))),
+         Subcriterion = paste0(Level_EN, Subcriterion))
+
+      # Save
+arc.write(paste0(outputDB, "/Subcriterion"), Subcriterion, overwrite = T)
+
+# AssessmentParameter
+      # Create intermediate tibble for use in KBA_SpeciesAssessments computation
+AssessmentParameter_inter <- AssessmentParameter %>%
+  mutate(AssessmentParameter = paste0("(", AssessmentParameterCode, ") ", tolower(AssessmentParameter_EN)))
+
+      # Save
+arc.write(paste0(outputDB, "/AssessmentParameter"), AssessmentParameter, overwrite = T)
+
+# KBA_SpeciesAssessments
+      # Create
+KBA_SpeciesAssessments <- SpeciesAssessment %>%
+  left_join(., SpeciesAtSite[,c("SpeciesAtSiteID", "KBASiteID", "SpeciesID")], by="SpeciesAtSiteID") %>%
+  left_join(., st_drop_geometry(KBASite[,c("KBASiteID", "SiteCode")]), by="KBASiteID") %>%
+  left_join(., st_drop_geometry(KBA_Site[,c("SiteCode", "SiteID")]), by="SiteCode") %>%
+  separate_rows(., CriteriaMet, sep="; ") %>%
+  rename(MinReproductiveUnits = RU_Min,
+         RUType = RU_Composition10RUs,
+         RUSources = RU_Sources,
+         MinSitePopulation = SiteEstimate_Min,
+         BestSitePopulation = SiteEstimate_Best,
+         MaxSitePopulation = SiteEstimate_Max,
+         SitePopulationSources = SiteEstimate_Sources,
+         MinRefPopulation = ReferenceEstimate_Min,
+         BestRefPopulation = ReferenceEstimate_Best,
+         MaxRefPopulation = ReferenceEstimate_Max,
+         RefPopulationSources = ReferenceEstimate_Sources) %>%
+  mutate(SpeciesAssessmentsID = 1:nrow(.),
+         SpeciesStatus = paste0(Status_Value, " (", Status_AssessmentAgency, ")"),
+         FootnoteID = NA) %>%
+  left_join(., Subcriterion_inter[,c("Subcriterion", "SubcriterionID")], by=c("CriteriaMet" = "Subcriterion")) %>%
+  left_join(., AssessmentParameter_inter[,c("AssessmentParameter", "AssessmentParameterID")], by="AssessmentParameter") %>%
+  select(all_of(crosswalk %>% filter(Layer_BC == "KBA_SpeciesAssessments") %>% pull(Name_BC)))
+
+      # Save
+arc.write(paste0(outputDB, "/KBA_SpeciesAssessments"), KBA_SpeciesAssessments, overwrite = T)
