@@ -457,7 +457,6 @@ KBA_SpeciesAssessments <- SpeciesAssessment %>%
   left_join(., SpeciesAtSite[,c("SpeciesAtSiteID", "KBASiteID", "SpeciesID")], by="SpeciesAtSiteID") %>%
   left_join(., st_drop_geometry(KBASite[,c("KBASiteID", "SiteCode")]), by="KBASiteID") %>%
   left_join(., st_drop_geometry(KBA_Site[,c("SiteCode", "SiteID")]), by="SiteCode") %>%
-  separate_rows(., CriteriaMet, sep="; ") %>%
   rename(MinReproductiveUnits = RU_Min,
          RUType = RU_Composition10RUs,
          RUSources = RU_Sources,
@@ -473,12 +472,26 @@ KBA_SpeciesAssessments <- SpeciesAssessment %>%
   mutate(SpeciesAssessmentsID = 1:nrow(.),
          SpeciesStatus = paste0(Status_Value, " (", Status_AssessmentAgency, ")"),
          FootnoteID = NA) %>%
-  left_join(., Subcriterion_inter[,c("Subcriterion", "SubcriterionID")], by=c("CriteriaMet" = "Subcriterion")) %>%
   left_join(., AssessmentParameter_inter[,c("AssessmentParameter", "AssessmentParameterID")], by="AssessmentParameter") %>%
   select(all_of(crosswalk %>% filter(Layer_BC == "KBA_SpeciesAssessments") %>% pull(Name_BC)))
 
       # Save
 arc.write(paste0(outputDB, "/KBA_SpeciesAssessments"), KBA_SpeciesAssessments, overwrite = T)
+
+# SpeciesAssessment_Subcriterion
+      # Create
+SpeciesAssessment_Subcriterion <- SpeciesAssessment %>%
+  left_join(., SpeciesAtSite[,c("SpeciesAtSiteID", "KBASiteID", "SpeciesID")], by="SpeciesAtSiteID") %>%
+  left_join(., st_drop_geometry(KBASite[,c("KBASiteID", "SiteCode")]), by="KBASiteID") %>%
+  left_join(., st_drop_geometry(KBA_Site[,c("SiteCode", "SiteID")]), by="SiteCode") %>%
+  separate_rows(., CriteriaMet, sep="; ") %>%
+  left_join(., Subcriterion_inter[,c("Subcriterion", "SubcriterionID")], by=c("CriteriaMet" = "Subcriterion")) %>%
+  left_join(., KBA_SpeciesAssessments[,c("SiteID", "SpeciesID", "SpeciesAssessmentsID")], by=c("SiteID", "SpeciesID")) %>%
+  mutate(AssessmentSubcriterionID = 1:nrow(.)) %>%
+  select(all_of(crosswalk %>% filter(Layer_BC == "SpeciesAssessment_Subcriterion") %>% pull(Name_BC)))
+
+      # Save
+arc.write(paste0(outputDB, "/SpeciesAssessment_Subcriterion"), SpeciesAssessment_Subcriterion, overwrite = T)
 
 # InternalBoundary
       # Check that KBACustomPolygon is empty (because the code that deals with that feature class is not yet written)
