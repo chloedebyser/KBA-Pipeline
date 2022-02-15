@@ -35,11 +35,11 @@ arc.delete(dirname("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4
 # Data
       # WCSC-BC crosswalk
 crosswalk <- read.xlsx("G:/My Drive/KBA Canada Team/1. Source Datasets/Wildlife Conservation Society Canada/BirdsCanada-WCSC_DatabaseCrosswalk.xlsx")
-Layer_BC <- crosswalk[2:nrow(crosswalk), 2]
-Layer_WCSC <- crosswalk[2:nrow(crosswalk), 8]
-Name_BC <- crosswalk[2:nrow(crosswalk), 3]
-Name_WCSC <- crosswalk[2:nrow(crosswalk), 9]
-crosswalk <- data.frame(Layer_BC = Layer_BC, Name_BC = Name_BC, Layer_WCSC = Layer_WCSC, Name_WCSC = Name_WCSC) %>%
+Layer_BC <- crosswalk[2:nrow(crosswalk), 10]
+Layer_WCSC <- crosswalk[2:nrow(crosswalk), 1]
+Name_BC <- crosswalk[2:nrow(crosswalk), 11]
+Name_WCSC <- crosswalk[2:nrow(crosswalk), 2]
+crosswalk <- data.frame(Layer_WCSC = Layer_WCSC, Name_WCSC = Name_WCSC, Layer_BC = Layer_BC, Name_BC = Name_BC) %>%
   filter_all(any_vars(!is.na(.)))
 
       # Input Database
@@ -190,7 +190,11 @@ KBA_Website <- KBASite %>%
   rename(BiodiversitySummary_EN = AdditionalBiodiversity_EN,
          BiodiversitySummary_FR = AdditionalBiodiversity_FR) %>%
   mutate(Conservation_EN = NA,
-         Conservation_FR = NA) %>%
+         Conservation_FR = NA,
+         GlobalCriteriaSummary_EN = NA,
+         GlobalCriteriaSummary_FR = NA,
+         NationalCriteriaSummary_EN = NA,
+         NationalCriteriaSummary_FR = NA) %>%
   select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Website") %>% pull(Name_BC)))
 
       # Save
@@ -204,7 +208,7 @@ KBA_Citation <- KBACitation %>%
   mutate(KBACitationID = 1:nrow(.),
          ShortReference = ShortCitation,
          LongReference = LongCitation) %>%
-  select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Citations") %>% pull(Name_BC)))
+  select(all_of(crosswalk %>% filter(Layer_BC == "KBA_Citation") %>% pull(Name_BC)))
   
       # Save
 arc.write(paste0(outputDB, "/KBA_Citation"), KBA_Citation, overwrite = T)
@@ -314,6 +318,7 @@ Species %<>%
          InformalTaxonomicGroup = RegistryTaxGroup,
          CommonName_EN = National_engl_name,
          CommonName_FR = National_fr_name,
+         TaxonomicLevel = Ca_nname_level,
          WDKBASpecRecID = WDKBAID,
          IUCNTaxonID = IUCN_InternalTaxonID,
          IUCNAssessmentID = IUCN_AssessmentID,
@@ -341,28 +346,38 @@ Species %<>%
          COSEWICLink = NA,
          NSLink = NA,
          ContinentalPopulationSize = NA,
-         CitationContinentalPopulation = NA) %>%
+         CitationContinentalPopulation = NA,
+         NationalTrend = NA,
+         CitationNationalTrend = NA) %>%
   left_join(., IUCNStatus, by=c("IUCN_CD" = "Nomenclature")) %>%
   left_join(., COSEWICStatus, by=c("Cosewic_status" = "Nomenclature"))
 
       # Range information
             # Unnest current_distribution
-range <- Species %>%
+range_info <- Species %>%
   select(Current_distribution, SpeciesID) %>%
   mutate(Current_distribution = strsplit(Current_distribution, ", ")) %>%
   unnest(Current_distribution) %>%
   mutate(Current_distribution = ifelse(Current_distribution %in% c("LB", "NF"), "NL", Current_distribution)) %>%
   left_join(., KBA_Province, by=c("Current_distribution" = "Abbreviation"))
 
+            # Range
+range <- range_info %>%
+  select(SpeciesID, Current_distribution) %>%
+  group_by(SpeciesID) %>%
+  arrange(SpeciesID, Current_distribution) %>%
+  distinct() %>%
+  summarise(Range = paste(Current_distribution, collapse = ", "))
+
             # Range_EN
-range_en <- range %>%
+range_en <- range_info %>%
   select(SpeciesID, Province_EN) %>%
   group_by(SpeciesID) %>%
   arrange(SpeciesID, Province_EN) %>%
   summarise(Range_EN = paste(Province_EN, collapse = ", "))
 
             # Range_FR
-range_fr <- range %>%
+range_fr <- range_info %>%
   select(SpeciesID, Province_FR) %>%
   group_by(SpeciesID) %>%
   arrange(SpeciesID, Province_FR) %>%
@@ -370,6 +385,7 @@ range_fr <- range %>%
 
             # Join
 Species %<>%
+  left_join(., range, by="SpeciesID") %>%
   left_join(., range_en, by="SpeciesID") %>%
   left_join(., range_fr, by="SpeciesID")
 
