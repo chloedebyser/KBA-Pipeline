@@ -12,6 +12,7 @@
 #### Needed: Add SARA_STATUS_DATE when available in BIOTICS_ELEMENT_NATIONAL
 #### Needed: Implement FootnoteID (right now it is just set to NA)
 #### Needed: For species that lack an IUCN/COSEWIC assessment, replace NAs with ID for "Not Assessed" (see updated IUCNStatus and COSEWICStatus lookup tables)
+#### Needed: Parse population and subspecies names out of NATIONAL_ENGL_NAME and NATIONAL_FR_NAME (Dean has draft code)
 
 #### Workspace ####
 # Packages
