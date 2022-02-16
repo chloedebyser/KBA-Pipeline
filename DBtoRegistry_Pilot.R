@@ -333,7 +333,8 @@ Species %<>%
          NSGRank = G_rank,
          NSGRankReviewDate = G_rank_review_date,
          NSNRank = N_rank,
-         NSNRankReviewDate = N_rank_review_date) %>%
+         NSNRankReviewDate = N_rank_review_date,
+         NSLink = Nsx_url) %>%
   mutate(Sensitive = 0,
          Subspecies_EN = NA,
          Subspecies_FR = NA,
@@ -344,7 +345,6 @@ Species %<>%
          IUCNLink = NA,
          SARAssessmentDate = NA,
          COSEWICLink = NA,
-         NSLink = NA,
          ContinentalPopulationSize = NA,
          CitationContinentalPopulation = NA,
          NationalTrend = NA,
