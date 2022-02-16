@@ -3,7 +3,7 @@
 #### Script by Chloé Debyser
 
 #### KBA-EBAR to KBA Registry - Trial Islands & Yukon Pilot
-#### Needed: Way to assign unique IDs (e.g. ThreatsSiteID, ConservationSiteID)
+#### Needed: Way to assign unique IDs (e.g. ThreatsSiteID, ConservationSiteID) in incremental way
 #### Needed: Way to match new records to previously existing IDs (e.g. for citations - if a given citation was already used in a previous KBA proposal)
 #### Needed: Don't send global sites to Registry if they don't have a WDKBAID
 #### Needed: Add considerations of species sensitivity
@@ -11,6 +11,7 @@
 #### Needed: Find substitutes for everything that is hard coded
 #### Needed: Add SARA_STATUS_DATE when available in BIOTICS_ELEMENT_NATIONAL
 #### Needed: Implement FootnoteID (right now it is just set to NA)
+#### Needed: For species that lack an IUCN/COSEWIC assessment, replace NAs with ID for "Not Assessed" (see updated IUCNStatus and COSEWICStatus lookup tables)
 
 #### Workspace ####
 # Packages
