@@ -400,6 +400,10 @@ if("KBALandCover" %in% layers){
 }
 
 # IUCNStatus
+      # Format
+IUCNStatus %<>% mutate(Nomenclature = trimws(Nomenclature))
+
+      # Save
 arc.write(paste0(outputDB, "/IUCNStatus"), IUCNStatus, overwrite = T)
 
 # COSEWICStatus
