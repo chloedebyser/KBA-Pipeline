@@ -694,7 +694,8 @@ KBA_SpeciesAssessments %<>%
   left_join(., st_drop_geometry(KBA_Site[,c("SiteID", "SiteCode")]), by="SiteID") %>%
   left_join(., st_drop_geometry(KBASite[,c("KBASiteID", "SiteCode")]), by="SiteCode") %>%
   left_join(., sppSensitivity[,c("SpeciesID", "KBASiteID", "NewID", "Display_AssessmentInfo")], by=c("SpeciesID", "KBASiteID")) %>%
-  mutate(SpeciesID = ifelse(!is.na(NewID), NewID, SpeciesID))
+  mutate(SpeciesID = ifelse(!is.na(NewID), NewID, SpeciesID),
+         Display_AssessmentInfo = ifelse(is.na(Display_AssessmentInfo), "Yes", Display_AssessmentInfo))
 
             # If Display_AssessmentInfo = No, remove assessment information
 KBA_SpeciesAssessments %<>%
