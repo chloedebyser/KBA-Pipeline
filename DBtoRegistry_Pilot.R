@@ -27,8 +27,8 @@ library(stringi)
 url <- "https://gis.natureserve.ca/arcgis/rest/services/"
 
 # Input parameters
-inputDB <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBA-EBAR_Pilot_2023.02_EditedSites.gdb"
-outputDB <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBARegistry_Pilot_2023.02_EditedSites.gdb"
+inputDB <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBA-EBAR_Pilot_2023.04.gdb"
+outputDB <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBARegistry_Pilot_2023.04.gdb"
 
 # Remove the output geodatabase, to start fresh
 arc.delete(dirname(paste0(outputDB, "/KBA_Level")))
@@ -107,6 +107,7 @@ Subcriterion <- read.csv("G:/My Drive/KBA Canada Team/1. Source Datasets/Birds C
 biotics <- arc.open(paste0(url, 'EBAR-KBA/Restricted/FeatureServer/4')) %>%
   arc.select()
 
+KBAInputPolygon %<>% filter(!is.na(InputPolygonID))
 inputPolygonSQL <- ifelse(length(KBAInputPolygon$InputPolygonID)>0, paste0("inputpolygonid IN (", paste(KBAInputPolygon$InputPolygonID, collapse = ", "), ")"), "inputpolygonid IN (1000000000000000000000000000000000000000000000000000)")
 inputPolygon <- arc.open(paste0(url, 'EBAR-KBA/Restricted/FeatureServer/2')) %>%
   arc.select(., where_clause = inputPolygonSQL)
@@ -205,7 +206,8 @@ KBA_Site <- KBASite %>%
   mutate(SiteID = 1:nrow(.),
          Name_FR = ifelse(is.na(NationalName_FR), Name_EN, NationalName_FR),
          Level_EN = ifelse(grepl("Global", KBALevel_EN), "Global", "National"),
-         PercentProtected = NA)
+         PercentProtected = NA,
+         BoundaryGeneralized = ifelse(BoundaryGeneralization == 3, 1, 0))
 
       # If the site is global and not yet globally accepted, set it to national
             # Get IDs of concerned sites
