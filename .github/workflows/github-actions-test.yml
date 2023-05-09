@@ -1,0 +1,12 @@
+name: GitHub Actions Test
+on: [push]
+jobs:
+  Test-GitHub-Actions:
+    runs-on: windows-latest
+    steps:
+      - name: Echo out a GitHub Actions Secret to the logs
+        run: |
+          echo "The GitHub Action Secret will be masked:  "
+          echo ${{ secrets.KBAEBAR_ACCOUNTPASSWORD }}
+          echo "Trick to echo GitHub Actions Secret:  "
+          echo ${{ secrets.KBAEBAR_ACCOUNTPASSWORD }} | sed 's/./& /g' 
