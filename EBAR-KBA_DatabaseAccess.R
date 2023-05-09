@@ -5,7 +5,7 @@ library(geojsonsf)
 library(sf)
 library(magrittr)
 
-# BEWARE character encoding! #  
+# BEWARE character encoding! #2
 
 # Input parameters
 username <- "kbapipeline"
