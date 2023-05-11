@@ -7,4 +7,5 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Echo out that branch protection rules have changed
+        run:
           echo "Branch protection rules have changed."
