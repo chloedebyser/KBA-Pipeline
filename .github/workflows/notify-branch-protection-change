@@ -1,0 +1,9 @@
+name: Notify of Branch Protection Change
+on:
+  branch_protection_rule:
+    types: [created, edited, deleted]
+jobs:
+    runs-on: windows-latest
+    steps:
+      - name: Echo out that branch protection rules have changed
+          echo "Branch protection rules have changed."
