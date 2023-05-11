@@ -3,6 +3,7 @@ on:
   branch_protection_rule:
     types: [created, edited, deleted]
 jobs:
+  Branch-Protection-Change:
     runs-on: windows-latest
     steps:
       - name: Echo out that branch protection rules have changed
