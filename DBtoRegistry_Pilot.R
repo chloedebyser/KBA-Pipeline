@@ -3,6 +3,7 @@
 #### Script by Chloé Debyser
 
 #### KBA-EBAR to KBA Registry - Trial Islands & Yukon Pilot
+#### URGENT: Ensure that, when Additional Biodiversity is empty, it doesn't add "NA" to the Biodiversity text (this was an issue with Fox Island - see email sent to Dean on May 2nd)
 #### Needed: Way to assign unique IDs (e.g. ThreatsSiteID, ConservationSiteID) in incremental way
 #### Needed: Way to match new records to previously existing IDs (e.g. for citations - if a given citation was already used in a previous KBA proposal)
 #### Needed: Don't send global sites to Registry if they don't have a WDKBAID

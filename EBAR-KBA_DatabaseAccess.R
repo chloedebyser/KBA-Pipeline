@@ -10,7 +10,7 @@ library(magrittr)
 # Input parameters
 username <- "kbapipeline"
 password
-address <- "KBA_View/FeatureServer/7"
+address <- "KBA_View/FeatureServer/0"
 spatial <- F
 
 # Get token
