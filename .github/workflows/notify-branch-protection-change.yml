@@ -1,0 +1,14 @@
+name: Notify of Branch Protection Change
+on:
+  branch_protection_rule:
+    types: [created, edited, deleted]
+jobs:
+  Branch-Protection-Change:
+    runs-on: ubuntu-latest
+    steps:
+    - name: CINotify Email
+      uses: cinotify/github-action@v1.1.0
+      with:
+        to: ${{secrets.BRANCH_PROTECTION_CHANGE_NOTIFICATION_EMAIL}}
+        subject: 'KBA Pipeline - Change in Branch Protection Rules'
+        body: 'A change has been made to branch protection rules in the KBA Pipeline GitHub repository.'
