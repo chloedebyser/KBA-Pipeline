@@ -28,8 +28,8 @@ library(stringi)
 url <- "https://gis.natureserve.ca/arcgis/rest/services/"
 
 # Input parameters
-inputDB <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBA-EBAR_Pilot_2023.04.gdb"
-outputDB <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBARegistry_Pilot_2023.04.gdb"
+inputDB <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBA-EBAR_Pilot_2023.06.gdb"
+outputDB <- "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/5. Pipeline - KBA-EBAR to Registry/KBARegistry_Pilot_2023.06.gdb"
 
 # Remove the output geodatabase, to start fresh
 arc.delete(dirname(paste0(outputDB, "/KBA_Level")))
@@ -244,7 +244,9 @@ KBA_Website <- KBASite %>%
          GlobalCriteriaSummary_EN = NA,
          GlobalCriteriaSummary_FR = NA,
          NationalCriteriaSummary_EN = NA,
-         NationalCriteriaSummary_FR = NA)
+         NationalCriteriaSummary_FR = NA,
+         Conservation_EN = ifelse(Conservation_EN == "None", NA, Conservation_EN),
+         Conservation_FR = ifelse(Conservation_FR %in% c("Aucune", "Aucune"), NA, Conservation_FR))
 
       # If the site is global and not yet globally accepted, add special disclaimer
             # Get global triggers at global KBAs not yet globally accepted
