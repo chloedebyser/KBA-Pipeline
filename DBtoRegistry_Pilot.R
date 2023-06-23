@@ -264,7 +264,7 @@ extraDisclaimer_EN <- globalNotAccepted_triggers %>%
   arrange(national_engl_name) %>%
   mutate(ExtraDisclaimer_EN = paste0("<p>The following taxa are being proposed as global KBA triggers: ",
                                      paste0(paste0(national_engl_name, " (<i>", national_scientific_name, "</i>)"), collapse="; "),
-                                     ". Once accepted, this site will become a global KBA. In the meantine, it is a national KBA.</p>")) %>%
+                                     ". Once accepted, this site will become a global KBA. In the meantime, it is a national KBA.</p>")) %>%
   ungroup() %>%
   select(SiteCode, ExtraDisclaimer_EN)
 
