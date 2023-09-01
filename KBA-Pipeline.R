@@ -7,13 +7,14 @@
 # Instead, please edit the code locally and push your edits to the GitHub repository.             #
 ###################################################################################################
 
-#### TO DO: Do not send protected area information if boundarygeneralization == "3"
 #### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior)
 #### TO DO: Add protected area data
+#### TO DO: Do not send protected area information if boundarygeneralization == "3"
 #### TO DO: Add way to match new records to previously existing IDs (e.g. for citations - if a given citation was already used in a previous KBA proposal)
 #### TO DO: Don't send global sites to Registry if they don't have a WDKBAID
 #### TO DO: Find substitutes for everything that is hard coded
 #### TO DO: Add SARA_STATUS_DATE and NSX_URL when available in BIOTICS_ELEMENT_NATIONAL
+#### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.)
 #### TO DO: Implement FootnoteID (right now it is just set to NA)
 #### TO DO: For species that lack an IUCN/COSEWIC assessment, replace NAs with ID for "Not Assessed" (see updated IUCNStatus and COSEWICStatus lookup tables)
 #### TO DO: Parse population and subspecies names out of NATIONAL_ENGL_NAME and NATIONAL_FR_NAME (Dean has draft code)
@@ -35,16 +36,23 @@ source_url("https://github.com/chloedebyser/KBA-Public/blob/main/KBA%20Functions
 # Date of last pipeline run
 lastPipelineRun <- as.POSIXct("1800-01-01", tz = "GMT") # TO DO: update this parameter so it contains the date of last pipeline run (start time, or perhaps even a little before to ensure no sites are missed)
 
+# Environment variables - TO DO: Uncomment on server
+# kbapipeline_pswd <- sys.getenv("kbapipeline_pswd")
+
 # KBA-EBAR database information
 Sys.sleep(20)
-read_KBAEBARDatabase(environmentPath = "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/0. R Codes/KBA-Tools-Canada/KBA-EBAR Tools/Environment.RData")
+read_KBAEBARDatabase(datasetNames=c("DatasetSource", "InputDataset", "ECCCRangeMap", "RangeMap", "EcoshapeOverviewRangeMap"),
+                     type="exclude",
+                     environmentPath = "C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/0. R Codes/Environments/Sensitive.RData",
+                     account="kbapipeline") %>%
+  suppressWarnings()
 
 # KBA Registry database information
       # Registry database connection
 source("C:/Users/CDebyser/OneDrive - Wildlife Conservation Society/4. Analyses/0. R Codes/KBA-Tools-Canada/Data Management/14. Connect to KBA Registry database.R")
 
       # Lookup tables
-lookupTables <- c("KBA_Province", "KBA_Level", "Threats", "Conservation", "System", "Habitat", "AssessmentParameter", "COSEWICStatus", "IUCNStatus", "Criterion", "Subcriterion")
+lookupTables <- c("KBA_Province", "KBA_Level", "Threats", "Conservation", "System", "Habitat", "AssessmentParameter", "COSEWICStatus", "IUCNStatus", "Criterion", "Subcriterion", "Ecosystem_Class")
 
 for(lookupTable in lookupTables){
   
@@ -57,52 +65,45 @@ for(lookupTable in lookupTables){
 }
 rm(lookupTable, lookupTables)
 
-      # Templates
-templates <- list(c("KBA_Site", T), c("KBA_Website", F), c("KBA_Citation", F), c("KBA_Conservation", F), c("KBA_Threats", F), c("KBA_System", F), c("KBA_Habitat", F), c("Species", F), c("Species_Citation", F), c("KBA_SpeciesAssessments", F), c("Ecosystem", F), c("Ecosystem_Class", F), c("Ecosystem_Citation", F), c("KBA_EcosystemAssessments", F), c("SpeciesAssessment_Subcriterion", F), c("EcosystemAssessment_Subcriterion", F), c("Footnote", F), c("InternalBoundary", T))
+      # Data tables
+dataTables <- list(c("KBA_Site", T), c("KBA_Website", F), c("KBA_Citation", F), c("KBA_Conservation", F), c("KBA_Threats", F), c("KBA_System", F), c("KBA_Habitat", F), c("Species", F), c("Species_Citation", F), c("KBA_SpeciesAssessments", F), c("Ecosystem", F), c("Ecosystem_Citation", F), c("KBA_EcosystemAssessments", F), c("SpeciesAssessment_Subcriterion", F), c("EcosystemAssessment_Subcriterion", F), c("Footnote", F), c("InternalBoundary", T))
 
-for(i in 1:length(templates)){
+for(i in 1:length(dataTables)){
   
   # Get data
         # If spatial
-  if(templates[[i]][2]){
-    data <- registryDB %>% read_sf(templates[[i]][1])
+  if(dataTables[[i]][2]){
+    data <- registryDB %>% read_sf(dataTables[[i]][1])
     
         # If non-spatial
   }else{
-    data <- registryDB %>% tbl(templates[[i]][1]) %>% collect()
+    data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
   }
   
   # Assign data
-  assign(paste0("REG_", templates[[i]][1]), data)
+  assign(paste0("REG_", dataTables[[i]][1]), data)
   rm(data)
 }
-rm(templates, i)
+rm(dataTables, i)
 
 #### Temporary site filters/data edits ####
-# TEMP: ONLY RETAIN SITES FOR WHICH THE PROPOSAL FORM IMPORT TOOL WAS RUN - TO DO: Remove this once the Proposal Form Import Tool has been run for all Confirmed sites
+# TEMP: REMOVE BIRD SITES BECAUSE NO FINAL PROPOSAL FORM - TO DO: Remove this once the Proposal Form Import Tool has been run for all bird sites
 DB_KBASite %<>%
-  filter(is.na(birdstechnicalreviewlink)) %>%
-  filter(!nationalname %in% c("Qikiqtaruk - Herschel Island"))
+  filter(is.na(birdstechnicalreviewlink))
 
 # TEMP: PRETENT MARBLE RIDGE ALVAR IS ACCEPTED - TO DO: Remove once done with testing
 DB_KBASite %<>%
   mutate(sitestatus = replace(sitestatus, nationalname == "Marble Ridge Alvar", 6),
-         confirmdate = replace(confirmdate, nationalname == "Marble Ridge Alvar", "2024-08-15 10:00:19 GMT"),
+         confirmdate = replace(confirmdate, nationalname == "Marble Ridge Alvar", Sys.time() %>% with_tz(., tzone="GMT")),
          n_ecosystematsite = replace(n_ecosystematsite, nationalname == "Marble Ridge Alvar", 1),
          n_biodivelementdistribution = replace(n_biodivelementdistribution, nationalname == "Marble Ridge Alvar", 1))
 
 DB_Ecosystem %<>%
   mutate(kba_group = replace(kba_group, ecosystemid == DB_BIOTICS_ECOSYSTEM[which(DB_BIOTICS_ECOSYSTEM$cnvc_english_name == "Manitoba Alvar"), "ecosystemid"], "Grassland & Shrubland"))
 
-# TEMP: SPECIFY LANDCOVER FIELD TYPES - TO DO: Remove once fully populated in the database
-DB_KBALandCover %<>%
-  mutate(percentcovermin = as.double(percentcovermin),
-         percentcovermax = as.double(percentcovermax))
-
-# TEMP: POPULATE REG_Ecosystem_Class - TO DO: Remove once this is populated in the Registry
-REG_Ecosystem_Class %<>%
-  add_row(ClassName_EN = sort(unique(DB_BIOTICS_ECOSYSTEM$subclass_name))) %>%
-  mutate(EcosystemClassID = 1:nrow(.))
+# TEMP: PRETEND 5 NEW SITES ARE CONFIRMED
+DB_KBASite %<>%
+  mutate(confirmdate = replace(confirmdate, kbasiteid %in% c(83, 440, 615, 616, 618), Sys.time() %>% with_tz(., tzone="GMT")))
 
 #### SPECIES - Update all species ####
 # Create initial dataframe
@@ -228,6 +229,14 @@ REGA_Species %<>%
   rename(SpeciesID = speciesid) %>%
   select(all_of(colnames(REG_Species)))
 
+# Only retain species that are in the Registry database
+REGU_Species <- REGA_Species %>%
+  filter(!is.na(NSElementCode)) %>%
+  filter(NSElementCode %in% REG_Species$NSElementCode)
+
+# TO DO: Use symdiff to find changes
+test <- symdiff(REG_Species, REGU_Species)
+
 # TO DO: Dean to add code that updates species records, for all species that are currently on the Registry (excluding sensitive species, which shouldn't be updated)
 
 #### ECOSYSTEMS - Update all ecosystems ####
@@ -335,6 +344,13 @@ REGA_Ecosystem %<>% left_join(., relevantReferenceEstimates_eco, by="ecosystemid
 REGA_Ecosystem %<>%
   rename(EcosystemID = ecosystemid) %>%
   select(all_of(colnames(REG_Ecosystem)))
+
+# Only retain ecosystems that are in the Registry database
+REGU_Ecosystem <- REGA_Ecosystem %>%
+  filter(!is.na(NSElementCode_IVC)) %>%
+  filter(NSElementCode_IVC %in% REG_Ecosystem$NSElementCode_IVC)
+
+# TO DO: Use symdiff to find changes
 
 # TO DO: Dean to add code that updates ecosystem records, for all ecosystems that are currently on the Registry
 
@@ -626,7 +642,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
       mutate(SiteID = 1,
              ThreatsSiteID = NA,
              Threat_EN = sapply(1:nrow(.), function(x){
-        threats <- .[x, c("level1", "level2", "level3")]
+        threats <- .[x, c("level1", "level2", "level3")] %>%
+          as.vector(.)
         level <- last(threats[which(!is.na(threats))])
       })) %>%
       mutate(ThreatCode = sapply(Threat_EN, function(x) substr(x, 1, stri_locate_all(pattern=" ", x, fixed=T)[[1]][1,1]-1))) %>%
@@ -664,11 +681,10 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # KBA_Habitat - TO DO: Double-check this code once DB_KBALandCover is fully populated
   REGS_KBA_Habitat <- DBS_KBALandCover %>%
     mutate(SiteID = 1,
-           HabitatSiteID = ifelse(nrow(.)>0, 1:nrow(.), 1),
-           HabitatArea = mean(c(percentcovermin, percentcovermax))) %>%
-    left_join(., REG_Habitat[,c("HabitatID", "Habitat_EN")], by=c("landcover" = "Habitat_EN")) %>%
-    left_join(., DBS_KBASite[,c("kbasiteid", "areakm2")], by="kbasiteid") %>%
-    mutate(PercentCover = 100*as.double(HabitatArea)/as.double(areakm2)) %>%
+           HabitatSiteID = ifelse(nrow(.)>0, 1:nrow(.), 1)) %>%
+    rename(HabitatArea = areakm2,
+           PercentCover = percentcover) %>%
+    left_join(., REG_Habitat[,c("HabitatID", "Habitat_EN")], by=c("landcover_en" = "Habitat_EN")) %>%
     select(all_of(colnames(REG_KBA_Habitat)))
   
   # KBA_ProtectedArea - TO DO: Add when data is in DB
