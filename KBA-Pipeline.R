@@ -37,10 +37,10 @@ source_url("https://github.com/chloedebyser/KBA-Public/blob/main/KBA%20Functions
 source("functions.R")
 
 # Date of last pipeline run
-lastPipelineRun <- as.POSIXct("1800-01-01", tz = "GMT") # TO DO: update this parameter so it contains the date of last pipeline run (start time, or perhaps even a little before to ensure no sites are missed)
+lastPipelineRun <- as.POSIXct("2023-09-01", tz = "GMT") # TO DO: update this parameter so it contains the date of last pipeline run (start time, or perhaps even a little before to ensure no sites are missed)
 
 # Environment variables 
-env_vars <- c("kbapipeline_pswd","postgres_user","postgres_pass","database_name","database_host","mailtrap_pass")
+env_vars <- c("kbapipeline_pswd","postgres_user","postgres_pass","database_name","database_host","mailtrap_pass","database_port")
 for (env in env_vars) {
   var <- Sys.getenv(toupper(env))
   assign(env, var)
@@ -62,7 +62,7 @@ registryDB <- dbConnect(
   password = postgres_pass,
   dbname = database_name,
   host = database_host,
-  port = 5432
+  port = database_port
   
 )
 
@@ -80,17 +80,17 @@ for(lookupTable in lookupTables){
 }
 rm(lookupTable, lookupTables)
 
-      # Data tables
+    # Data tables
 dataTables <- list(c("KBA_Site", T), c("KBA_Website", F), c("KBA_Citation", F), c("KBA_Conservation", F), c("KBA_Threats", F), c("KBA_System", F), c("KBA_Habitat", F), c("Species", F), c("Species_Citation", F), c("KBA_SpeciesAssessments", F), c("Ecosystem", F), c("Ecosystem_Citation", F), c("KBA_EcosystemAssessments", F), c("SpeciesAssessment_Subcriterion", F), c("EcosystemAssessment_Subcriterion", F), c("Footnote", F), c("InternalBoundary", T))
 
 for(i in 1:length(dataTables)){
   
   # Get data
-        # If spatial
+  # If spatial
   if(dataTables[[i]][2]){
     data <- registryDB %>% read_sf(dataTables[[i]][1])
     
-        # If non-spatial
+    # If non-spatial
   }else{
     data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
   }
@@ -99,7 +99,7 @@ for(i in 1:length(dataTables)){
   assign(paste0("REG_", dataTables[[i]][1]), data)
   rm(data)
 }
-rm(dataTables, i)
+rm(i)
 
 #### Temporary site filters/data edits ####
 # TEMP: REMOVE BIRD SITES BECAUSE NO FINAL PROPOSAL FORM - TO DO: Remove this once the Proposal Form Import Tool has been run for all bird sites
@@ -119,6 +119,18 @@ DB_Ecosystem %<>%
 # TEMP: PRETEND 5 NEW SITES ARE CONFIRMED
 DB_KBASite %<>%
   mutate(confirmdate = replace(confirmdate, kbasiteid %in% c(83, 440, 615, 616, 618), Sys.time() %>% with_tz(., tzone="GMT")))
+
+for(id in c(83, 440, 615, 616, 618)){
+  
+  filter_KBAEBARDatabase(KBASiteIDs = id, RMUnfilteredDatasets = F)
+  
+  DB_KBASite %<>% mutate(n_speciesatsite = replace(n_speciesatsite, kbasiteid == id, nrow(DBS_SpeciesAtSite)),
+                         n_ecosystematsite = replace(n_ecosystematsite, kbasiteid == id, nrow(DBS_EcosystemAtSite)),
+                         n_originaldelineation = replace(n_originaldelineation, kbasiteid == id, nrow(DBS_OriginalDelineation)),
+                         n_biodivelementdistribution = replace(n_biodivelementdistribution, kbasiteid == id, nrow(DBS_BiodivElementDistribution)),
+                         n_kbainputpolygon = replace(n_kbainputpolygon, kbasiteid == id, nrow(DBS_KBAInputPolygon)),
+                         n_kbacustompolygon = replace(n_kbacustompolygon, kbasiteid == id, nrow(DBS_KBACustomPolygon)))
+}
 
 #### SPECIES - Update all species ####
 # Create initial dataframe
@@ -239,21 +251,29 @@ relevantReferenceEstimates_spp %<>%
       # Add to dataframe
 REGA_Species %<>% left_join(., relevantReferenceEstimates_spp, by="speciesid")
 
+# Assign SpeciesID from the Registry
+REGA_Species %<>%
+  filter(!is.na(NSElementCode)) %>%
+  rename(WCSC_SpeciesID = speciesid) %>%
+  left_join(., REG_Species[,c("SpeciesID", "NSElementCode")], by="NSElementCode")
+
+crosswalk_SpeciesID <- REGA_Species %>%
+  rename(BC_SpeciesID = SpeciesID) %>%
+  select(WCSC_SpeciesID, BC_SpeciesID)
+
 # Select final columns
 REGA_Species %<>%
-  rename(SpeciesID = speciesid) %>%
   select(all_of(colnames(REG_Species)))
 
 # Only retain species that are in the Registry database
 REGU_Species <- REGA_Species %>%
-  filter(!is.na(NSElementCode)) %>%
   filter(NSElementCode %in% REG_Species$NSElementCode)
 
 # TO DO: Use symdiff to find changes - need to add footnotes
 test <- symdiff(REG_Species, REGU_Species)
 
 # Update existing species 
- registryDB %>% update.table("Species","SpeciesID",REGU_Species,REG_Species)
+registryDB %>% update.table("Species","SpeciesID",REGU_Species,REG_Species)
 
 #### ECOSYSTEMS - Update all ecosystems ####
 REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
@@ -356,9 +376,18 @@ relevantReferenceEstimates_eco %<>%
       # Add to dataframe
 REGA_Ecosystem %<>% left_join(., relevantReferenceEstimates_eco, by="ecosystemid")
 
+# Assign EcosystemID from the Registry
+REGA_Ecosystem %<>%
+  filter(!is.na(NSElementCode_IVC)) %>%
+  rename(WCSC_EcosystemID = ecosystemid) %>%
+  left_join(., REG_Ecosystem[,c("EcosystemID", "NSElementCode_IVC")], by="NSElementCode_IVC")
+
+crosswalk_EcosystemID <- REGA_Ecosystem %>%
+  rename(BC_EcosystemID = EcosystemID) %>%
+  select(WCSC_EcosystemID, BC_EcosystemID)
+
 # Select final columns
 REGA_Ecosystem %<>%
-  rename(EcosystemID = ecosystemid) %>%
   select(all_of(colnames(REG_Ecosystem)))
 
 # Only retain ecosystems that are in the Registry database
@@ -391,12 +420,31 @@ maxSensitiveSpeciesID <- REG_Species %>%
   {ifelse(. < 1000000, 1000000, .)}
 
 # Create empty dataframe to store errors
-siteerrors<- data.frame(site=character(),sitecode=character(),error=character())
+siteErrors<- data.frame(site=character(),sitecode=character(),error=character())
 
 # Site processing
 for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   tryCatch({
+    
+  ### Load Registry data tables ###
+  for(i in 1:length(dataTables)){
+    
+    # Get data
+    # If spatial
+    if(dataTables[[i]][2]){
+      data <- registryDB %>% read_sf(dataTables[[i]][1])
+      
+      # If non-spatial
+    }else{
+      data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
+    }
+      
+    # Assign data
+    assign(paste0("REG_", dataTables[[i]][1]), data)
+    rm(data)
+  }
+  rm(i)
     
   ### Only process sites that are ready for and in need of publishing ###
   # Only process sites with status = "Publication of National Site" or beyond
@@ -593,6 +641,12 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     maxSensitiveSpeciesID <- max(sensitiveSpecies$newid)
   }
   
+  ### Compute SiteID for Registry ###
+  REG_siteID <- DBS_KBASite %>%
+    left_join(., st_drop_geometry(REG_KBA_Site[,c("SiteID", "SiteCode")]), by=c("sitecode" = "SiteCode")) %>%
+    mutate(SiteID = ifelse(is.na(SiteID), max(REG_KBA_Site$SiteID) + 1, SiteID)) %>%
+    pull(SiteID)
+  
   ### Convert to Registry data model ###
   # KBA_Site
   REGS_KBA_Site <- DBS_KBASite %>%
@@ -603,8 +657,9 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            AltMin = altitudemin,
            AltMax = altitudemax,
            PercentProtected = percentprotected,
-           Area = areakm2) %>%
-    mutate(SiteID = 1,
+           Area = areakm2,
+           Version = version) %>%
+    mutate(SiteID = REG_siteID,
            Name_FR = ifelse(is.na(nationalname_fr), Name_EN, nationalname_fr),
            Level_EN = ifelse(grepl("Global", kbalevel_en), "Global", "National"),
            BoundaryGeneralized = ifelse(boundarygeneralization == 3, 1, 0),
@@ -624,7 +679,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            Disclaimer_FR = disclaimer_fr,
            SiteHistory_EN = sitehistory_en,
            SiteHistory_FR = sitehistory_fr) %>%
-    mutate(SiteID = 1,
+    mutate(SiteID = REG_siteID,
            SiteDescription_EN = sitedescription_en %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .),
            SiteDescription_FR = sitedescription_fr %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .),
            Conservation_EN = conservation_en %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .),
@@ -652,14 +707,14 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            LongCitation = longcitation,
            DOI = doi,
            URL = url) %>%
-    mutate(SiteID = 1,
+    mutate(SiteID = REG_siteID,
            KBACitationID = 1:nrow(.)) %>%
     select(all_of(colnames(REG_KBA_Citation)))
   
   # KBA_Threats
   if(nrow(DBS_KBAThreat) > 0){
     REGS_KBA_Threats <- DBS_KBAThreat %>%
-      mutate(SiteID = 1,
+      mutate(SiteID = REG_siteID,
              ThreatsSiteID = NA,
              Threat_EN = sapply(1:nrow(.), function(x){
         threats <- .[x, c("level1", "level2", "level3")] %>%
@@ -680,7 +735,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # KBA_Conservation
   REGS_KBA_Conservation <- DBS_KBAAction %>%
     rename(Ongoing_Needed = ongoingorneeded) %>%
-    mutate(SiteID = 1,
+    mutate(SiteID = REG_siteID,
            ConservationAction = ifelse(conservationaction == "None", "0.0 None", conservationaction),
            ConservationCode = sapply(ConservationAction, function(x) as.numeric(substr(x, 1, stri_locate_all(pattern=" ", x, fixed=T)[[1]][1,1]-1)))) %>%
     left_join(., REG_Conservation[,c("ConservationID", "ConservationCode")], by="ConservationCode") %>%
@@ -693,14 +748,14 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     st_drop_geometry() %>%
     separate_rows(., systems, sep="; ") %>%
     left_join(., REG_System[,c("SystemID", "Type_EN")], by=c("systems" = "Type_EN")) %>%
-    mutate(SiteID = 1,
+    mutate(SiteID = REG_siteID,
            SystemSiteID = 1:nrow(.),
            Rank = 1:nrow(.)) %>%
     select(all_of(colnames(REG_KBA_System)))
   
   # KBA_Habitat - TO DO: Double-check this code once DB_KBALandCover is fully populated
   REGS_KBA_Habitat <- DBS_KBALandCover %>%
-    mutate(SiteID = 1,
+    mutate(SiteID = REG_siteID,
            HabitatSiteID = ifelse(nrow(.)>0, 1:nrow(.), 1)) %>%
     rename(HabitatArea = areakm2,
            PercentCover = percentcover) %>%
@@ -710,8 +765,26 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # KBA_ProtectedArea - TO DO: Add when data is in DB
   
   # Species
+        # Get records relevant to the site
   REGS_Species <- REGA_Species %>%
-    filter(SpeciesID %in% DBS_SpeciesAtSite$speciesid)
+    filter(NSElementCode %in% DBS_BIOTICS_ELEMENT_NATIONAL$element_code)
+  
+        # Assign existing or new Registry SpeciesID
+  for(j in 1:nrow(REGS_Species)){
+    
+    # Get maximum existing SpeciesID in the Registry
+    maxBCSpeciesID <- REGA_Species$SpeciesID %>% max(., na.rm=T)
+    
+    # Assign existing or new SpeciesID
+    BCSpeciesID <- REGS_Species$SpeciesID[j] %>%
+      ifelse(is.na(.),
+             maxBCSpeciesID+1,
+             .)
+    
+    # Update SpeciesID in REGS_Species, REGA_Species, and crosswalk_SpeciesID
+    REGS_Species$SpeciesID[j] <- BCSpeciesID
+    REGA_Species[which(REGA_Species$NSElementCode == REGS_Species$NSElementCode[j]), "SpeciesID"] <- BCSpeciesID
+  }
   
   # Species_Citation
   REGS_Species_Citation <- relevantReferenceEstimates_spp %>%
@@ -1081,7 +1154,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     registryDB %>% dbRollback() ### rollback site on error
     message(paste(DBS_KBASite$nationalname, "KBA not processed."))
     # Store error info
-    siteerrors <<- rbind(siteerrors,data.frame(site=DBS_KBASite$nationalname,
+    siteErrors <<- rbind(siteErrors,data.frame(site=DBS_KBASite$nationalname,
                                           sitecode=DBS_KBASite$sitecode,
                                           error=e[["message"]]))
     message(e)
@@ -1129,9 +1202,9 @@ tryCatch({
 })
 
 ### Send error email
-if(nrow(siteerrors)>0 | length(cleanuperror) >0){
-  errornumber <- nrow(siteerrors) + length(cleanuperror)
-  errortext <- if(nrow(siteerrors)>0 ){paste0("<li>",siteerrors$site," (",siteerrors$sitecode,"): ",siteerrors$error,"</li>",collapse = "")} else {""}
+if(nrow(siteErrors)>0 | length(cleanuperror) >0){
+  errornumber <- nrow(siteErrors) + length(cleanuperror)
+  errortext <- if(nrow(siteErrors)>0 ){paste0("<li>",siteErrors$site," (",siteErrors$sitecode,"): ",siteErrors$error,"</li>",collapse = "")} else {""}
   errortext <- paste0(errortext,if(length(cleanuperror) >0){paste0("<li>Cleanup Error: ",cleanuperror,"</li>",collapse = "")}else{""})
   body <- paste0("KBA Pipeline run completed with ",errornumber," errors. Errors are as follows: <ul>",errortext,"</ul>")
   pipline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),

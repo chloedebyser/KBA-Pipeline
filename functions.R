@@ -30,7 +30,7 @@ delete.id <- function(.db,tablename="",idname="",ids,min=F){
   } else {
     deleteSQL <- paste0('DELETE FROM "',tablename,'" WHERE "',idname,'" = ',ids)
   }
-  message(deleteSQL)
+  #message(deleteSQL)
   for (i in 1:length(deleteSQL)) {
     .db %>% dbExecute(deleteSQL[i])
   }
@@ -88,7 +88,7 @@ update.table <-function(.db,tablename="",primarykey="",newdata,existingdata,full
           
         }
         SQL <- paste0(updateSQL, collapse = "; ")
-        message(SQL)
+        #message(SQL)
         for (i in 1:length(updateSQL)) {
           .db %>% dbExecute(updateSQL[i])
         }
