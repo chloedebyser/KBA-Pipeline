@@ -33,21 +33,32 @@ library(DBI)
 library(mailR)
 
 # Functions
+      # Key KBA functions
 source_url("https://github.com/chloedebyser/KBA-Public/blob/main/KBA%20Functions.R?raw=TRUE")
+
+      # Pipeline functions
 source("functions.R")
 
 # Date of last pipeline run
 lastPipelineRun <- as.POSIXct("2023-09-01", tz = "GMT") # TO DO: update this parameter so it contains the date of last pipeline run (start time, or perhaps even a little before to ensure no sites are missed)
 
 # Environment variables 
-env_vars <- c("kbapipeline_pswd","postgres_user","postgres_pass","database_name","database_host","mailtrap_pass","database_port")
-for (env in env_vars) {
+env_vars <- c("kbapipeline_pswd", "postgres_user", "postgres_pass", "database_name", "database_host", "mailtrap_pass", "database_port")
+
+for(env in env_vars){
+  
+  # Get variable
   var <- Sys.getenv(toupper(env))
+  
+  # Assign variable
   assign(env, var)
 }
-rm(env,env_vars)
-# KBA-EBAR database information
+rm(env, env_vars, var)
+
+# Coordinate reference system
 crs <- readRDS("crs.RDS")
+
+# KBA-EBAR database information
 Sys.sleep(20)
 read_KBAEBARDatabase(datasetNames=c("DatasetSource", "InputDataset", "ECCCRangeMap", "RangeMap", "EcoshapeOverviewRangeMap"),
                      type="exclude",
@@ -63,7 +74,6 @@ registryDB <- dbConnect(
   dbname = database_name,
   host = database_host,
   port = database_port
-  
 )
 
       # Lookup tables
@@ -80,17 +90,17 @@ for(lookupTable in lookupTables){
 }
 rm(lookupTable, lookupTables)
 
-    # Data tables
+      # Data tables
 dataTables <- list(c("KBA_Site", T), c("KBA_Website", F), c("KBA_Citation", F), c("KBA_Conservation", F), c("KBA_Threats", F), c("KBA_System", F), c("KBA_Habitat", F), c("Species", F), c("Species_Citation", F), c("KBA_SpeciesAssessments", F), c("Ecosystem", F), c("Ecosystem_Citation", F), c("KBA_EcosystemAssessments", F), c("SpeciesAssessment_Subcriterion", F), c("EcosystemAssessment_Subcriterion", F), c("Footnote", F), c("InternalBoundary", T))
 
 for(i in 1:length(dataTables)){
   
   # Get data
-  # If spatial
+        # If spatial
   if(dataTables[[i]][2]){
     data <- registryDB %>% read_sf(dataTables[[i]][1])
     
-    # If non-spatial
+        # If non-spatial
   }else{
     data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
   }
@@ -117,9 +127,11 @@ DB_Ecosystem %<>%
   mutate(kba_group = replace(kba_group, ecosystemid == DB_BIOTICS_ECOSYSTEM[which(DB_BIOTICS_ECOSYSTEM$cnvc_english_name == "Manitoba Alvar"), "ecosystemid"], "Grassland & Shrubland"))
 
 # TEMP: PRETEND 5 NEW SITES ARE CONFIRMED
+      # Update confirm date
 DB_KBASite %<>%
   mutate(confirmdate = replace(confirmdate, kbasiteid %in% c(83, 440, 615, 616, 618), Sys.time() %>% with_tz(., tzone="GMT")))
 
+      # Update N_* fields
 for(id in c(83, 440, 615, 616, 618)){
   
   filter_KBAEBARDatabase(KBASiteIDs = id, RMUnfilteredDatasets = F)
@@ -251,15 +263,19 @@ relevantReferenceEstimates_spp %<>%
       # Add to dataframe
 REGA_Species %<>% left_join(., relevantReferenceEstimates_spp, by="speciesid")
 
+# Remove records with no NatureServe Element Code
+REGA_Species %<>%
+  filter(!is.na(NSElementCode))
+
 # Assign SpeciesID from the Registry
 REGA_Species %<>%
-  filter(!is.na(NSElementCode)) %>%
-  rename(WCSC_SpeciesID = speciesid) %>%
+  rename(DB_SpeciesID = speciesid) %>%
   left_join(., REG_Species[,c("SpeciesID", "NSElementCode")], by="NSElementCode")
 
+# Create crosswalk from KBA-EBAR SpeciesID to Registry SpeciesID
 crosswalk_SpeciesID <- REGA_Species %>%
-  rename(BC_SpeciesID = SpeciesID) %>%
-  select(WCSC_SpeciesID, BC_SpeciesID)
+  rename(REG_SpeciesID = SpeciesID) %>%
+  select(DB_SpeciesID, REG_SpeciesID)
 
 # Select final columns
 REGA_Species %<>%
@@ -272,8 +288,8 @@ REGU_Species <- REGA_Species %>%
 # TO DO: Use symdiff to find changes - need to add footnotes
 test <- symdiff(REG_Species, REGU_Species)
 
-# Update existing species 
-registryDB %>% update.table("Species","SpeciesID",REGU_Species,REG_Species)
+# Update all species that are currently on the Registry (excluding sensitive species)
+registryDB %>% update.table("Species", "SpeciesID", REGU_Species, REG_Species)
 
 #### ECOSYSTEMS - Update all ecosystems ####
 REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
@@ -376,15 +392,19 @@ relevantReferenceEstimates_eco %<>%
       # Add to dataframe
 REGA_Ecosystem %<>% left_join(., relevantReferenceEstimates_eco, by="ecosystemid")
 
+# Remove records with no NatureServe Element Code
+REGA_Ecosystem %<>%
+  filter(!is.na(NSElementCode_IVC))
+
 # Assign EcosystemID from the Registry
 REGA_Ecosystem %<>%
-  filter(!is.na(NSElementCode_IVC)) %>%
-  rename(WCSC_EcosystemID = ecosystemid) %>%
+  rename(DB_EcosystemID = ecosystemid) %>%
   left_join(., REG_Ecosystem[,c("EcosystemID", "NSElementCode_IVC")], by="NSElementCode_IVC")
 
+# Create crosswalk from KBA-EBAR EcosystemID to Registry EcosystemID
 crosswalk_EcosystemID <- REGA_Ecosystem %>%
-  rename(BC_EcosystemID = EcosystemID) %>%
-  select(WCSC_EcosystemID, BC_EcosystemID)
+  rename(REG_EcosystemID = EcosystemID) %>%
+  select(DB_EcosystemID, REG_EcosystemID)
 
 # Select final columns
 REGA_Ecosystem %<>%
@@ -392,13 +412,12 @@ REGA_Ecosystem %<>%
 
 # Only retain ecosystems that are in the Registry database
 REGU_Ecosystem <- REGA_Ecosystem %>%
-  filter(!is.na(NSElementCode_IVC)) %>%
   filter(NSElementCode_IVC %in% REG_Ecosystem$NSElementCode_IVC)
 
 # TO DO: Use symdiff to find changes
 
-# Update existing ecosystems
-registryDB %>% update.table("Ecosystem","EcosystemID",REGU_Ecosystem,REG_Ecosystem)
+# Update all ecosystems that are currently on the Registry
+registryDB %>% update.table("Ecosystem", "EcosystemID", REGU_Ecosystem, REG_Ecosystem)
 
 #### SITES - Add & update sites in need of publishing, including related records ####
 # Initialize sensitive species information
