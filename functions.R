@@ -65,7 +65,7 @@ update.table <-function(.db,tablename="",primarykey="",newdata,existingdata,full
     add <- newdata %>% filter(!!as.symbol(primarykey) %!in% existingpks)
     ### Do append 
     if(nrow(add)>0){
-      message(nrow(add), " records appended to the ",tablename," table.")
+      message(nrow(add), " records added to the ",tablename," table.")
       .db  %>% dbWriteTable(name = tablename,add,append = TRUE)
     } else {message("No new records to add.")}
     ### Do updates
@@ -98,6 +98,9 @@ update.table <-function(.db,tablename="",primarykey="",newdata,existingdata,full
       
     } else {message("No records to update.")}
     
+  } else {
+    message("No records added to the ",tablename," table.")
+    message("No records to update.")
   }
 }
 
@@ -251,6 +254,9 @@ delete.sites <- function(.db,sitecodes){
     .db %>% delete.id("EcosystemAssessment_Subcriterion","EcosystemAssessmentsID",ecoassessmentids)
     .db %>% delete.id("KBA_EcosystemAssessments","EcosystemAssessmentsID",ecoassessmentids)}
   .db %>% delete.id("KBA_Site","SiteID",siteid)
+  message(length(siteid)," sites deleted.")
+  } else {
+    message("No sites deleted.")
   }
 }
 
@@ -264,6 +270,9 @@ cleanup.species <- function(.db){
     .db %>% delete.id("Species_Link","SpeciesID",speciesids)
     .db %>% delete.id("Species_Photo","SpeciesID",speciesids)
     .db %>% delete.id("Species","SpeciesID",speciesids)
+    message(length(speciesids)," species cleaned up.")
+  } else {
+    message("No species needed to be cleaned up.")
   }
 }
 
@@ -277,6 +286,9 @@ cleanup.ecosystems <- function(.db){
     .db %>% delete.id("Ecosystem_Link","EcosystemID",ecosystemids)
     .db %>% delete.id("Ecosystem_Photo","EcosystemID",ecosystemids)
     .db %>% delete.id("Ecosystem","EcosystemID",ecosystemids)
+    message(length(ecosystemids)," ecosystems cleaned up.")
+  } else {
+    message("No ecosystems needed to be cleaned up.")
   }
 }
 
@@ -290,6 +302,9 @@ cleanup.footnote <- function(.db){
   pull(FootnoteID)
   if(length(footnoteids)>0){
     .db %>% delete.id("Footnote","FootnoteID",footnoteids)
+    message(length(footnoteids)," footnotes cleaned up.")
+  } else {
+    message("No footnotes needed to be cleaned up.")
   }
 }
 
@@ -303,6 +318,9 @@ cleanup.internalboundary <- function(.db){
   pull(InternalBoundaryID)
   if(length(boundaryids)>0){
     .db %>% delete.id("InternalBoundary","InternalBoundaryID",boundaryids)
+    message(length(boundaryids)," Internal Boundaries cleaned up.")
+  } else {
+    message("No Internal Boundaries needed to be cleaned up.")
   }
 }
 
