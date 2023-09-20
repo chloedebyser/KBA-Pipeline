@@ -76,7 +76,7 @@ update.table <-function(.db,tablename="",primarykey="",newdata,existingdata,full
       }
       diffs <- setdiff(update,existingdata)
       if(nrow(diffs)>0){
-        message(nrow(diffs), " records update in the ",tablename," table.")
+        message(nrow(diffs), " records updated in the ",tablename," table.")
         pks <- diffs %>% pull(primarykey)
         updateSQL <- c()
         for (i in 1:length(pks)) {

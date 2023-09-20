@@ -62,7 +62,8 @@ crs <- readRDS("crs.RDS")
 Sys.sleep(20)
 read_KBAEBARDatabase(datasetNames=c("DatasetSource", "InputDataset", "ECCCRangeMap", "RangeMap", "EcoshapeOverviewRangeMap"),
                      type="exclude",
-                     account="kbapipeline") %>%
+                     account="kbapipeline",
+                     epsg=4326) %>%
   suppressWarnings()
 
 # KBA Registry database information
@@ -91,7 +92,7 @@ for(lookupTable in lookupTables){
 rm(lookupTable, lookupTables)
 
       # Data tables
-dataTables <- list(c("KBA_Site", T), c("KBA_Website", F), c("KBA_Citation", F), c("KBA_Conservation", F), c("KBA_Threats", F), c("KBA_System", F), c("KBA_Habitat", F), c("Species", F), c("Species_Citation", F), c("KBA_SpeciesAssessments", F), c("Ecosystem", F), c("Ecosystem_Citation", F), c("KBA_EcosystemAssessments", F), c("SpeciesAssessment_Subcriterion", F), c("EcosystemAssessment_Subcriterion", F), c("Footnote", F), c("InternalBoundary", T))
+dataTables <- list(c("KBA_Site", T), c("KBA_Website", F), c("KBA_Citation", F), c("KBA_Conservation", F), c("KBA_Threats", F), c("KBA_System", F), c("KBA_Habitat", F), c("Species", F), c("Species_Citation", F), c("KBA_SpeciesAssessments", F), c("Ecosystem", F), c("Ecosystem_Citation", F), c("KBA_EcosystemAssessments", F), c("SpeciesAssessment_Subcriterion", F), c("EcosystemAssessment_Subcriterion", F), c("Footnote", F), c("InternalBoundary", T), c("Species_Link", F))
 
 for(i in 1:length(dataTables)){
   
@@ -421,7 +422,6 @@ registryDB %>% update.table("Ecosystem", "EcosystemID", REGU_Ecosystem, REG_Ecos
 
 #### SITES - Add & update sites in need of publishing, including related records ####
 # Initialize sensitive species information
-      # Empty dataframe
 sensitiveSpecies <- data.frame(speciesatsiteid = integer(),
                                speciesid = integer(),
                                display_alternativename = character(),
@@ -431,12 +431,6 @@ sensitiveSpecies <- data.frame(speciesatsiteid = integer(),
                                newid = integer(),
                                kba_group = character(),
                                display_alternativegroup = character())
-
-      # Maximum species ID
-maxSensitiveSpeciesID <- REG_Species %>%
-  pull(SpeciesID) %>%
-  max(.) %>%
-  {ifelse(. < 1000000, 1000000, .)}
 
 # Create empty dataframe to store errors
 siteErrors<- data.frame(site=character(),sitecode=character(),error=character())
@@ -612,6 +606,12 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     # If Display_TaxonName = 0, create new species record with new ID
     if(sum(DBS_SpeciesAtSite$display_taxonname == "No") > 0){
       
+      # Maximum species ID
+      maxSensitiveSpeciesID <- REG_Species %>%
+        pull(SpeciesID) %>%
+        max(.) %>%
+        {ifelse(. < 1000000, 1000000, .)}
+      
       # Create sensitive species dataset
       sensitiveSpecies_new <- DBS_SpeciesAtSite %>%
         filter(display_taxonname == "No") %>%
@@ -644,7 +644,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
       crosswalk_SpeciesID %<>%
         add_row(DB_SpeciesID = sensitiveSpecies_new$newid,
                 REG_SpeciesID = sensitiveSpecies_new$newid,
-                NSElementCode = NA)
+                NSElementCode = paste0("SensSpp", sensitiveSpecies_new$newid))
       
       # Check that alternative names were correctly translated
       if(sum(is.na(REGA_Species %>% filter(Sensitive == 1) %>% pull(CommonName_FR))) > 0){
@@ -670,9 +670,6 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     biodivelementdistributionids <- c(DBS_SpeciesAtSite$biodivelementdistributionid, DBS_EcosystemAtSite$biodivelementdistributionid) %>% .[which(!is.na(.))]
     DBS_BiodivElementDistribution %<>%
       filter(biodivelementdistributionid %in% biodivelementdistributionids)
-    
-    # Update maximum sensitive SpeciesID
-    maxSensitiveSpeciesID <- max(sensitiveSpecies$newid)
   }
   
   ### Compute Registry IDs ###
@@ -701,7 +698,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
               # Update in REGA_Species
   REGA_Species %<>%
     left_join(., crosswalk_SpeciesID[,c("NSElementCode", "REG_SpeciesID")], by="NSElementCode") %>%
-    mutate(SpeciesID = REG_SpeciesID) %>%
+    mutate(SpeciesID = ifelse(Sensitive == 1, SpeciesID, REG_SpeciesID)) %>%
     select(all_of(colnames(REG_Species)))
   
         # EcosystemID
@@ -735,7 +732,6 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            DateAssessed = dateassessed,
            AltMin = altitudemin,
            AltMax = altitudemax,
-           PercentProtected = percentprotected,
            Area = areakm2,
            Version = version) %>%
     mutate(SiteID = REG_siteID,
@@ -744,10 +740,11 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            BoundaryGeneralized = ifelse(boundarygeneralization == 3, 1, 0),
            Obsolete = ifelse(sitestatus %in% c(9, 10), 1, 0),
            Latitude = round(lat_wgs84, 2),
-           Longitude = round(long_wgs84, 2)) %>%
+           Longitude = round(long_wgs84, 2),
+           PercentProtected = round(percentprotected, 0)) %>%
     left_join(., REG_KBA_Province, by=c("jurisdiction_en" = "Province_EN")) %>%
     left_join(., REG_KBA_Level, by="Level_EN") %>%
-    select(all_of(colnames(REG_KBA_Site)))
+    select(all_of(colnames(REG_KBA_Site))) %>% st_cast("MULTIPOLYGON")
   
   # KBA_Website
   REGS_KBA_Website <- DBS_KBASite %>%
@@ -787,7 +784,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            DOI = doi,
            URL = url) %>%
     mutate(SiteID = REG_siteID,
-           KBACitationID = 1:nrow(.)) %>%
+           KBACitationID = ifelse(nrow(.)>0, 1:nrow(.), 1)) %>%
     select(all_of(colnames(REG_KBA_Citation)))
   
   # KBA_Threats
@@ -847,7 +844,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   REGS_Species <- REGA_Species %>%
     filter(!is.na(SpeciesID)) %>%
     left_join(., crosswalk_SpeciesID[,c("REG_SpeciesID", "DB_SpeciesID")], by=c("SpeciesID" = "REG_SpeciesID")) %>%
-    filter(DB_SpeciesID %in% DBS_SpeciesAtSite$speciesid)
+    filter(DB_SpeciesID %in% DBS_SpeciesAtSite$speciesid) %>%
+    select(all_of(colnames(REG_Species)))
   
   # Species_Citation
   REGS_Species_Citation <- relevantReferenceEstimates_spp %>%
@@ -893,7 +891,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            SpeciesAssessmentsID = speciesassessmentid,
            InternalBoundaryID = biodivelementdistributionid) %>%
     mutate(SiteID = REG_siteID,
-           SpeciesStatus = ifelse(is.na(status_value), NA, paste0(status_value, " (", status_assessmentagency, ")")),
+           SpeciesStatus = ifelse(is.na(status_value), NA, paste0(status_value, " (", status_assessmentagency, ")")) %>% as.character(),
            FootnoteID = NA,
            AssessmentParameter_EN = ifelse(nrow(.)>0, str_to_sentence(substr(assessmentparameter, start=gregexpr(")", assessmentparameter, fixed=T)[[1]][1]+2, stop=nchar(assessmentparameter))), "")) %>%
     left_join(., REG_AssessmentParameter[,c("AssessmentParameterID", "AssessmentParameter_EN")], by="AssessmentParameter_EN") %>%
@@ -913,7 +911,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   REGS_Ecosystem <- REGA_Ecosystem %>%
     filter(!is.na(EcosystemID)) %>%
     left_join(., crosswalk_EcosystemID[,c("REG_EcosystemID", "DB_EcosystemID")], by=c("EcosystemID" = "REG_EcosystemID")) %>%
-    filter(DB_EcosystemID %in% DBS_EcosystemAtSite$ecosystemid)
+    filter(DB_EcosystemID %in% DBS_EcosystemAtSite$ecosystemid) %>%
+    select(all_of(colnames(REG_Ecosystem)))
   
   # Ecosystem_Citation
   REGS_Ecosystem_Citation <- relevantReferenceEstimates_eco %>%
@@ -956,7 +955,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            EcosystemAssessmentsID = ecosystemassessmentid,
            InternalBoundaryID = biodivelementdistributionid) %>%
     mutate(SiteID = REG_siteID,
-           EcosystemStatus = ifelse(is.na(status_value), NA, paste0(status_value, " (", status_assessmentagency, ")")),
+           EcosystemStatus = ifelse(is.na(status_value), NA, paste0(status_value, " (", status_assessmentagency, ")")) %>% as.character(),
            FootnoteID = NA) %>%
     select(all_of(colnames(REG_KBA_EcosystemAssessments)))
   
@@ -984,6 +983,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   registryDB %>% dbBegin()
   
   # update table
+   
   registryDB %>% update.table("KBA_Site","SiteID",REGS_KBA_Site,REG_KBA_Site)
   
   #### KBA_Website ####
@@ -1057,16 +1057,16 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   #### KBA_ProtectedArea ####
   
   # Create new full table in case systems have been added or removed from a site
-  New_KBA_ProtectedArea <- REG_KBA_ProtectedArea %>% 
-    filter(SiteID %!in% REGS_KBA_ProtectedArea$SiteID) %>% 
-    bind_rows(REGS_KBA_ProtectedArea) %>%
-    arrange(SiteID) %>%
-    mutate(ProtectedAreaID=if(n()>0) 1:n() else 0)
-  
-  # update table - full update
-  registryDB %>% update.table("KBA_ProtectedArea","ProtectedAreaID",New_KBA_ProtectedArea,REG_KBA_ProtectedArea,full = T)
-  # Remove data to free up any memory
-  rm(REG_KBA_ProtectedArea,REGS_KBA_ProtectedArea,New_KBA_ProtectedArea)
+  # New_KBA_ProtectedArea <- REG_KBA_ProtectedArea %>% 
+  #   filter(SiteID %!in% REGS_KBA_ProtectedArea$SiteID) %>% 
+  #   bind_rows(REGS_KBA_ProtectedArea) %>%
+  #   arrange(SiteID) %>%
+  #   mutate(ProtectedAreaID=if(n()>0) 1:n() else 0)
+  # 
+  # # update table - full update
+  # registryDB %>% update.table("KBA_ProtectedArea","ProtectedAreaID",New_KBA_ProtectedArea,REG_KBA_ProtectedArea,full = T)
+  # # Remove data to free up any memory
+  # rm(REG_KBA_ProtectedArea,REGS_KBA_ProtectedArea,New_KBA_ProtectedArea)
   
   
   #### KBA_Citation ####
@@ -1092,20 +1092,20 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   #### Species_Link ####
   # read in existing table
   ### Query for any links of non sensitive species and species that dont have any links yet
-  SpeciesLinks <- REGS_Species %>% filter(!SpeciesID %in% REG_Species_Link$SpeciesID,!Sensitive)
-  REGS_Species_Link <- getSpeciesLinks(SpeciesLinks)
-  
-  # Create new full table in case systems have been added or removed from a site
-  New_Species_Link <- REG_Species_Link %>% 
-    filter(SpeciesID %!in% REGS_Species_Link$SpeciesID) %>% 
-    bind_rows(REGS_Species_Link) %>%
-    arrange(SpeciesID) %>%
-    mutate(SpeciesLinkID=if(n()>0) 1:n() else 0)
-  
-  # update table - full update
-  registryDB %>% update.table("Species_Link","SpeciesLinkID",New_Species_Link,REG_Species_Link,full = T)
-  # Remove data to free up any memory
-  rm(REG_Species_Link,REGS_Species_Link,New_Species_Link,SpeciesLinks)
+  # SpeciesLinks <- REGS_Species %>% filter(!SpeciesID %in% REG_Species_Link$SpeciesID,!Sensitive)
+  # #REGS_Species_Link <- getSpeciesLinks(SpeciesLinks)
+  # 
+  # # Create new full table in case systems have been added or removed from a site
+  # New_Species_Link <- REG_Species_Link %>% 
+  #   filter(SpeciesID %!in% REGS_Species_Link$SpeciesID) %>% 
+  #   bind_rows(REGS_Species_Link) %>%
+  #   arrange(SpeciesID) %>%
+  #   mutate(SpeciesLinkID=if(n()>0) 1:n() else 0)
+  # 
+  # # update table - full update
+  # registryDB %>% update.table("Species_Link","SpeciesLinkID",New_Species_Link,REG_Species_Link,full = T)
+  # # Remove data to free up any memory
+  # rm(REG_Species_Link,REGS_Species_Link,New_Species_Link,SpeciesLinks)
   
   
   #### Species_Citation ####
@@ -1125,14 +1125,14 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   ### Do internal boundary and Footnote
   
   registryDB %>% update.table("InternalBoundary","InternalBoundaryID",REGS_InternalBoundary,REG_InternalBoundary)
-  registryDB %>% update.table("Footnote","FootnoteID",REGS_Footnote,REG_Footnote)
+ # registryDB %>% update.table("Footnote","FootnoteID",REGS_Footnote,REG_Footnote)
   
   rm(REGS_InternalBoundary,REG_InternalBoundary,REGS_Footnote,REG_Footnote)
   #### KBA_SpeciesAssessments &  SpeciesAssessment_Subcriterion  ####
   
   # Do left join on SpeciesAssessment_Subcriterion
-  REG_SpeciesAssessment <- REG_SpeciesAssessment_Subcriterion %>% left_join(REG_KBA_SpeciesAssessments)
-  REGS_SpeciesAssessment <- REGS_SpeciesAssessment_Subcriterion %>% left_join(REGS_KBA_SpeciesAssessments)
+  REG_SpeciesAssessment <- REG_SpeciesAssessment_Subcriterion %>% left_join(REG_KBA_SpeciesAssessments, by="SpeciesAssessmentsID")
+  REGS_SpeciesAssessment <- REGS_SpeciesAssessment_Subcriterion %>% left_join(REGS_KBA_SpeciesAssessments, by="SpeciesAssessmentsID")
   # Rebuild tables
   New_SpeciesAssessment <- REG_SpeciesAssessment %>% 
     filter(SiteID %!in% REGS_SpeciesAssessment$SiteID) %>%
@@ -1186,8 +1186,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   #### KBA_EcosystemAssessments &  EcosystemAssessment_Subcriterion  ####
   
   # Do left join on SpeciesAssessment_Subcriterion
-  REG_EcosystemAssessment <- REG_EcosystemAssessment_Subcriterion %>% left_join(REG_KBA_EcosystemAssessments)
-  REGS_EcosystemAssessment <- REGS_EcosystemAssessment_Subcriterion %>% left_join(REGS_KBA_EcosystemAssessments)
+  REG_EcosystemAssessment <- REG_EcosystemAssessment_Subcriterion %>% left_join(REG_KBA_EcosystemAssessments, by="EcosystemAssessmentsID")
+  REGS_EcosystemAssessment <- REGS_EcosystemAssessment_Subcriterion %>% left_join(REGS_KBA_EcosystemAssessments, by="EcosystemAssessmentsID")
   # Rebuild tables
   New_EcosystemAssessment <- REG_EcosystemAssessment %>% 
     filter(SiteID %!in% REGS_EcosystemAssessment$SiteID) %>%
@@ -1288,7 +1288,7 @@ if(nrow(siteErrors)>0 | length(cleanuperror) >0){
   pipline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
                 password = mailtrap_pass,
                 message = "KBA Pipeline run completed with no errors!")
-  
+  #### Add write to RDS to save last pipeline run
 }
 
 
