@@ -8,7 +8,6 @@
 ###################################################################################################
 
 #### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior)
-#### TO DO: Add protected area data
 #### TO DO: Do not send protected area information if boundarygeneralization == "3"
 #### TO DO: Add way to match new records to previously existing IDs (e.g. for citations - if a given citation was already used in a previous KBA proposal)
 #### TO DO: Don't send global sites to Registry if they don't have a WDKBAID
