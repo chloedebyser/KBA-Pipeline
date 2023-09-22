@@ -92,7 +92,7 @@ for(lookupTable in lookupTables){
 rm(lookupTable, lookupTables)
 
       # Data tables
-dataTables <- list(c("KBA_Site", T), c("KBA_Website", F), c("KBA_Citation", F), c("KBA_Conservation", F), c("KBA_Threats", F), c("KBA_System", F), c("KBA_Habitat", F), c("Species", F), c("Species_Citation", F), c("KBA_SpeciesAssessments", F), c("Ecosystem", F), c("Ecosystem_Citation", F), c("KBA_EcosystemAssessments", F), c("SpeciesAssessment_Subcriterion", F), c("EcosystemAssessment_Subcriterion", F), c("Footnote", F), c("InternalBoundary", T), c("Species_Link", F))
+dataTables <- list(c("KBA_Site", T), c("KBA_Website", F), c("KBA_Citation", F), c("KBA_Conservation", F), c("KBA_Threats", F), c("KBA_System", F), c("KBA_Habitat", F), c("KBA_ProtectedArea", F), c("Species", F), c("Species_Citation", F), c("KBA_SpeciesAssessments", F), c("Ecosystem", F), c("Ecosystem_Citation", F), c("KBA_EcosystemAssessments", F), c("SpeciesAssessment_Subcriterion", F), c("EcosystemAssessment_Subcriterion", F), c("Footnote", F), c("InternalBoundary", T), c("Species_Link", F))
 
 for(i in 1:length(dataTables)){
   
@@ -829,16 +829,28 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            Rank = 1:nrow(.)) %>%
     select(all_of(colnames(REG_KBA_System)))
   
-  # KBA_Habitat - TO DO: Double-check this code once DB_KBALandCover is fully populated
+  # KBA_Habitat
   REGS_KBA_Habitat <- DBS_KBALandCover %>%
     mutate(SiteID = REG_siteID,
-           HabitatSiteID = ifelse(nrow(.)>0, 1:nrow(.), 1)) %>%
+           HabitatSiteID = ifelse(nrow(.)>0, 1:nrow(.), 1),
+           landcover_en = ifelse(landcover_en == "Urban and built-up", "Urban", landcover_en)) %>%
     rename(HabitatArea = areakm2,
            PercentCover = percentcover) %>%
     left_join(., REG_Habitat[,c("HabitatID", "Habitat_EN")], by=c("landcover_en" = "Habitat_EN")) %>%
     select(all_of(colnames(REG_KBA_Habitat)))
   
-  # KBA_ProtectedArea - TO DO: Add when data is in DB
+  # KBA_ProtectedArea
+  REGS_KBA_ProtectedArea <- DBS_KBAProtectedArea %>%
+    mutate(ProtectedAreaID = ifelse(nrow(.)>0, 1:nrow(.), 1),
+           SiteID = REG_siteID) %>%
+    rename(PercentCover = percentcover,
+           ProtectedArea_EN = protectedarea_en,
+           ProtectedArea_FR = protectedarea_fr,
+           Type_EN = type_en,
+           Type_FR = type_fr,
+           IUCNCat_EN = iucncat_en,
+           IUCNCat_FR = iucncat_fr) %>%
+    select(all_of(colnames(REG_KBA_ProtectedArea)))
   
   # Species
   REGS_Species <- REGA_Species %>%
@@ -1009,7 +1021,6 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   #### KBA_Threats ####
   
-  
   # Create new full table in case systems have been added or removed from a site
   New_KBA_Threats <- REG_KBA_Threats %>% 
     filter(SiteID %!in% REGS_KBA_Threats$SiteID) %>% 
@@ -1051,8 +1062,6 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   registryDB %>% update.table("KBA_Habitat","HabitatSiteID",New_KBA_Habitat,REG_KBA_Habitat,full = T)
   # Remove data to free up any memory
   rm(REG_KBA_Habitat,REGS_KBA_Habitat,New_KBA_Habitat)
-  
-  #### Protected Areas ####
   
   #### KBA_ProtectedArea ####
   
