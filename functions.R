@@ -174,7 +174,7 @@ url_exists <- function(x, non_2xx_return_value = FALSE, quiet = FALSE,...) {
 }
 
 getSpeciesLinks <- function(Species){
-  all <- search_species(show = "all")
+  all <- naturecounts::search_species(show = "all")
   Links <- data.frame(SpeciesID=integer(),LinkName_EN=character(),LinkName_FR=character(),URL=character())
   if(nrow(Species)>0){
   for (i in 1:nrow(Species)) {
