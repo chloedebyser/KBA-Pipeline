@@ -1110,20 +1110,20 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   #### Species_Link ####
   # read in existing table
   ### Query for any links of non sensitive species and species that dont have any links yet
-  # SpeciesLinks <- REGS_Species %>% filter(!SpeciesID %in% REG_Species_Link$SpeciesID,!Sensitive)
-  # #REGS_Species_Link <- getSpeciesLinks(SpeciesLinks)
-  # 
-  # # Create new full table in case systems have been added or removed from a site
-  # New_Species_Link <- REG_Species_Link %>% 
-  #   filter(SpeciesID %!in% REGS_Species_Link$SpeciesID) %>% 
-  #   bind_rows(REGS_Species_Link) %>%
-  #   arrange(SpeciesID) %>%
-  #   mutate(SpeciesLinkID=if(n()>0) 1:n() else 0)
-  # 
-  # # update table - full update
-  # registryDB %>% update.table("Species_Link","SpeciesLinkID",New_Species_Link,REG_Species_Link,full = T)
-  # # Remove data to free up any memory
-  # rm(REG_Species_Link,REGS_Species_Link,New_Species_Link,SpeciesLinks)
+  SpeciesLinks <- REGS_Species %>% filter(!SpeciesID %in% REG_Species_Link$SpeciesID,!Sensitive)
+  REGS_Species_Link <- getSpeciesLinks(SpeciesLinks)
+
+  # Create new full table in case systems have been added or removed from a site
+  New_Species_Link <- REG_Species_Link %>%
+    filter(SpeciesID %!in% REGS_Species_Link$SpeciesID) %>%
+    bind_rows(REGS_Species_Link) %>%
+    arrange(SpeciesID) %>%
+    mutate(SpeciesLinkID=if(n()>0) 1:n() else 0)
+
+  # update table - full update
+  registryDB %>% update.table("Species_Link","SpeciesLinkID",New_Species_Link,REG_Species_Link,full = T)
+  # Remove data to free up any memory
+  rm(REG_Species_Link,REGS_Species_Link,New_Species_Link,SpeciesLinks)
   
   
   #### Species_Citation ####
@@ -1140,12 +1140,12 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # Remove data to free up any memory
   rm(REG_Species_Citation,REGS_Species_Citation,New_Species_Citation)
   
-  ### Do internal boundary and Footnote
+  ### Do internal boundary 
   
   registryDB %>% update.table("InternalBoundary","InternalBoundaryID",REGS_InternalBoundary,REG_InternalBoundary)
- # registryDB %>% update.table("Footnote","FootnoteID",REGS_Footnote,REG_Footnote)
+
   
-  rm(REGS_InternalBoundary,REG_InternalBoundary,REGS_Footnote,REG_Footnote)
+  rm(REGS_InternalBoundary,REG_InternalBoundary,REG_Footnote)
   #### KBA_SpeciesAssessments &  SpeciesAssessment_Subcriterion  ####
   
   # Do left join on SpeciesAssessment_Subcriterion
@@ -1174,9 +1174,9 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   }
   
   ### Update tables
-  registryDB %>% update.table("KBA_SpeciesAssessments","SpeciesAssessmentsID",New_KBA_SpeciesAssessments,REG_KBA_SpeciesAssessments)
+  registryDB %>% update.table("KBA_SpeciesAssessments","SpeciesAssessmentsID",New_KBA_SpeciesAssessments,REG_KBA_SpeciesAssessments, full = T)
   
-  registryDB %>% update.table("SpeciesAssessment_Subcriterion","AssessmentSubcriterionID",New_SpeciesAssessment_Subcriterion, REG_SpeciesAssessment_Subcriterion)
+  registryDB %>% update.table("SpeciesAssessment_Subcriterion","AssessmentSubcriterionID",New_SpeciesAssessment_Subcriterion, REG_SpeciesAssessment_Subcriterion, full = T)
   
   rm(missingIDs,New_KBA_SpeciesAssessments,REG_KBA_SpeciesAssessments,New_SpeciesAssessment_Subcriterion, REG_SpeciesAssessment_Subcriterion,New_SpeciesAssessment,REG_SpeciesAssessment,REGS_SpeciesAssessment,REGS_SpeciesAssessment_Subcriterion,REGS_KBA_SpeciesAssessments)
   
@@ -1229,9 +1229,9 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   }
   
   ### Update tables
-  registryDB %>% update.table("KBA_EcosystemAssessments","EcosystemAssessmentsID",New_KBA_EcosystemAssessments,REG_KBA_EcosystemAssessments)
+  registryDB %>% update.table("KBA_EcosystemAssessments","EcosystemAssessmentsID",New_KBA_EcosystemAssessments,REG_KBA_EcosystemAssessments, full = T)
   
-  registryDB %>% update.table("EcosystemAssessment_Subcriterion","EcoAssessmentSubcriterionID", New_EcosystemAssessment_Subcriterion, REG_EcosystemAssessment_Subcriterion)
+  registryDB %>% update.table("EcosystemAssessment_Subcriterion","EcoAssessmentSubcriterionID", New_EcosystemAssessment_Subcriterion, REG_EcosystemAssessment_Subcriterion, full = T)
   
   rm(missingIDs,New_KBA_EcosystemAssessments,REG_KBA_EcosystemAssessments,New_EcosystemAssessment_Subcriterion, REG_EcosystemAssessment_Subcriterion,New_EcosystemAssessment,REG_EcosystemAssessment,REGS_EcosystemAssessment,REGS_EcosystemAssessment_Subcriterion,REGS_KBA_EcosystemAssessments)
   
@@ -1265,7 +1265,7 @@ KBASite_retain <- DB_KBASite %>%
   filter(sitestatus >= 6) %>%
   select(sitecode, version)
 
-cleanuperror <- c()
+cleanupError <- c()
 
 tryCatch({
   # code for deleting sites
@@ -1286,17 +1286,17 @@ tryCatch({
   registryDB %>% dbCommit() ### Commit changes if no errors
   
 },error=function(e){
-  registryDB %>% dbRollback() #### rollback error
+  registryDB %>% dbRollback() #### rollback errors
   #store error
-  cleanuperror <<- c(e[["message"]])
+  cleanupError <<- c(e[["message"]])
   
 })
 
 ### Send error email
-if(nrow(siteErrors)>0 | length(cleanuperror) >0){
-  errornumber <- nrow(siteErrors) + length(cleanuperror)
+if(nrow(siteErrors)>0 | length(cleanupError) >0){
+  errornumber <- nrow(siteErrors) + length(cleanupError)
   errortext <- if(nrow(siteErrors)>0 ){paste0("<li>",siteErrors$site," (",siteErrors$sitecode,"): ",siteErrors$error,"</li>",collapse = "")} else {""}
-  errortext <- paste0(errortext,if(length(cleanuperror) >0){paste0("<li>Cleanup Error: ",cleanuperror,"</li>",collapse = "")}else{""})
+  errortext <- paste0(errortext,if(length(cleanupError) >0){paste0("<li>Cleanup Error: ",cleanupError,"</li>",collapse = "")}else{""})
   body <- paste0("KBA Pipeline run completed with ",errornumber," errors. Errors are as follows: <ul>",errortext,"</ul>")
   pipline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
                 password = mailtrap_pass,
