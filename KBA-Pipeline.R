@@ -30,6 +30,7 @@ library(stringi)
 library(RPostgres)
 library(DBI)
 library(mailR)
+library(jsonlite)
 
 # Functions
       # Key KBA functions
