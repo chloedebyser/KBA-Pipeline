@@ -16,7 +16,7 @@
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.)
 #### TO DO: Implement FootnoteID (right now it is just set to NA)
 #### TO DO: For species that lack an IUCN/COSEWIC assessment, replace NAs with ID for "Not Assessed" (see updated IUCNStatus and COSEWICStatus lookup tables)
-#### TO DO: Parse population and subspecies names out of NATIONAL_ENGL_NAME and NATIONAL_FR_NAME (Dean has draft code)
+
 
 #### Workspace ####
 # Packages
@@ -39,6 +39,7 @@ source_url("https://github.com/chloedebyser/KBA-Public/blob/main/KBA%20Functions
 source("functions.R")
 
 # Date of last pipeline run
+lastPipelineRun <- readRDS("lastPipelineRun.RDS")
 lastPipelineRun <- as.POSIXct("2023-09-01", tz = "GMT") # TO DO: update this parameter so it contains the date of last pipeline run (start time, or perhaps even a little before to ensure no sites are missed)
 
 # Environment variables 
@@ -145,6 +146,14 @@ for(id in c(83, 440, 615, 616, 618)){
 }
 
 #### SPECIES - Update all species ####
+# Read in Bird Specific Data
+Bird_Species <- fromJSON("https://kba-maps.deanrobertevans.ca/api/species") %>%
+  select(nselementcode,birdalphacode,bcspeciesid,nationaltrend,nationaltrendreference) %>% 
+  rename(NSElementCode=nselementcode,
+         BirdAlphaCode=birdalphacode,
+         BCSpeciesID=bcspeciesid,
+         NationalTrend=nationaltrend,
+         CitationNationalTrend=nationaltrendreference)
 # Create initial dataframe
 REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
   left_join(., DB_Species, by="speciesid") %>%
@@ -178,19 +187,16 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          NSNRank = n_rank,
          NSNRankReviewDate = n_rank_review_date,
          NSLink = nsx_url) %>%
+  left_join(., Bird_Species, by="NSElementCode") %>%
   mutate(Subspecies_EN = NA, # TO DO: populate
          Subspecies_FR = NA, # TO DO: populate
          Population_EN = NA, # TO DO: populate
          Population_FR = NA, # TO DO: populate
-         BirdAlphaCode = NA, # TO DO: populate
-         BCSpeciesID = NA, # TO DO: populate
          IUCNLink = NA, # TO DO: populate
          SARAAssessmentDate = NA, # TO DO: populate
          COSEWICLink = NA, # TO DO: populate
          ContinentalPopulationSize = NA, # TO DO: populate
          CitationContinentalPopulation = NA, # TO DO: populate
-         NationalTrend = NA, # TO DO: populate
-         CitationNationalTrend = NA, # TO DO: populate
          Sensitive = 0,
          Endemism = ifelse(endemism == "Yes (the element is endemic)",
                            "Y",
@@ -280,6 +286,9 @@ crosswalk_SpeciesID <- REGA_Species %>%
 # Select final columns
 REGA_Species %<>%
   select(all_of(colnames(REG_Species)))
+
+### Update species names
+REGA_Species <- updateSpeciesNames(REGA_Species)
 
 # Only retain species that are in the Registry database
 REGU_Species <- REGA_Species %>%
@@ -1064,17 +1073,17 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   #### KBA_ProtectedArea ####
   
-  # Create new full table in case systems have been added or removed from a site
-  # New_KBA_ProtectedArea <- REG_KBA_ProtectedArea %>% 
-  #   filter(SiteID %!in% REGS_KBA_ProtectedArea$SiteID) %>% 
-  #   bind_rows(REGS_KBA_ProtectedArea) %>%
-  #   arrange(SiteID) %>%
-  #   mutate(ProtectedAreaID=if(n()>0) 1:n() else 0)
-  # 
-  # # update table - full update
-  # registryDB %>% update.table("KBA_ProtectedArea","ProtectedAreaID",New_KBA_ProtectedArea,REG_KBA_ProtectedArea,full = T)
-  # # Remove data to free up any memory
-  # rm(REG_KBA_ProtectedArea,REGS_KBA_ProtectedArea,New_KBA_ProtectedArea)
+  #Create new full table in case systems have been added or removed from a site
+  New_KBA_ProtectedArea <- REG_KBA_ProtectedArea %>%
+    filter(SiteID %!in% REGS_KBA_ProtectedArea$SiteID) %>%
+    bind_rows(REGS_KBA_ProtectedArea) %>%
+    arrange(SiteID) %>%
+    mutate(ProtectedAreaID=if(n()>0) 1:n() else 0)
+
+  # update table - full update
+  registryDB %>% update.table("KBA_ProtectedArea","ProtectedAreaID",New_KBA_ProtectedArea,REG_KBA_ProtectedArea,full = T)
+  # Remove data to free up any memory
+  rm(REG_KBA_ProtectedArea,REGS_KBA_ProtectedArea,New_KBA_ProtectedArea)
   
   
   #### KBA_Citation ####

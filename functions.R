@@ -57,26 +57,30 @@ update.table <-function(.db,tablename="",primarykey="",newdata,existingdata,full
     if(full){
       if(nrow(newdata)<nrow(existingdata)){
         delete.id(.db,tablename,primarykey,max(newdata[,primarykey]),min=T)
-      }
-    } 
+        
+      } 
+    } else {
+      existingdata %<>% filter(!!as.symbol(primarykey) %in% newdata[,primarykey])
+    }
     ### Sperate data into add or updates
     existingpks <- existingdata %>% pull(!!as.symbol(primarykey))
     update <- newdata %>% filter(!!as.symbol(primarykey) %in% existingpks)
     add <- newdata %>% filter(!!as.symbol(primarykey) %!in% existingpks)
     ### Do append 
     if(nrow(add)>0){
-      message(nrow(add), " records added to the ",tablename," table.")
       .db  %>% dbWriteTable(name = tablename,add,append = TRUE)
-    } else {message("No new records to add.")}
+      message(nrow(newdata) - nrow(existingdata), " record(s) added to the ",tablename," table.")
+    } else {message("No new records to added to the ",tablename," table.")}
     ### Do updates
     if(nrow(update)>0){
       if("sf" %in% class(update)){
         update %<>% rename(shape=geometry) %>% mutate(geometry=st_as_binary(shape,EWKB=T,hex=T)) %>% st_drop_geometry()
         existingdata %<>% rename(shape=geometry) %>% mutate(geometry=st_as_binary(shape,EWKB=T,hex=T)) %>% st_drop_geometry()
+        newdata %<>% rename(shape=geometry) %>% mutate(geometry=st_as_binary(shape,EWKB=T,hex=T)) %>% st_drop_geometry()
       }
       diffs <- setdiff(update,existingdata)
+      truediff <- existingdata %>% select(-!!as.symbol(primarykey)) %>% setdiff(.,newdata %>% select(-!!as.symbol(primarykey)))
       if(nrow(diffs)>0){
-        message(nrow(diffs), " records updated in the ",tablename," table.")
         pks <- diffs %>% pull(primarykey)
         updateSQL <- c()
         for (i in 1:length(pks)) {
@@ -92,17 +96,23 @@ update.table <-function(.db,tablename="",primarykey="",newdata,existingdata,full
         for (i in 1:length(updateSQL)) {
           .db %>% dbExecute(updateSQL[i])
         }
+        if(tablename %!in% c("SpeciesAssessment_Subcriterion","EcosystemAssessment_Subcriterion")){
+          message(nrow(truediff), " records updated in the ",tablename," table.")
+        } else {
+          message("Unable to calculate the number records updated in the ",tablename," table.")
+        }
         
         
-        } else{message("No records to update.")}
+      } else{message("No records to update in the ",tablename," table.")}
       
-    } else {message("No records to update.")}
+    } else {message("No records to update in the ",tablename," table.")}
     
   } else {
     message("No records added to the ",tablename," table.")
-    message("No records to update.")
+    message("No records to update in the ",tablename," table.")
   }
 }
+
 
 
 
@@ -338,6 +348,57 @@ pipline.email <- function(to=c(),password="",message=""){
   
 }
 
+
+updateSpeciesNames <- function(species){
+  if(!all(c("TaxonomicLevel","CommonName_EN","CommonName_FR","Population_EN","Population_FR","Subspecies_EN","Subspecies_FR") %in% names(species))){stop("Missing columns in the input species table.")}
+  New_Species <- species %>% arrange(CommonName_EN)
+  for (i in 1:nrow(New_Species)) {
+    CommonName_EN <- New_Species$CommonName_EN[i]
+    CommonName_FR <- New_Species$CommonName_FR[i]
+    TaxonomicLevel <- New_Species$TaxonomicLevel[i]
+    if(TaxonomicLevel %in% c("Population","Subspecies")){
+      if((!is.na(CommonName_EN)) & TaxonomicLevel=="Population" & str_detect(CommonName_EN," - ")){
+        New_Species$Population_EN[i] <- str_split(CommonName_EN, " - ", 2,simplify = T)[,2]
+        New_Species$CommonName_EN[i] <- str_split(CommonName_EN, " - ", 2,simplify = T)[,1]
+        CommonName_EN <- str_split(CommonName_EN, " - ", 2,simplify = T)[,1]
+      }
+      if((!is.na(CommonName_FR)) & TaxonomicLevel=="Population" & str_detect(CommonName_FR," - ")){
+        New_Species$Population_FR[i] <- str_split(CommonName_FR, " - ", 2,simplify = T)[,2]
+        New_Species$CommonName_FR[i] <- str_split(CommonName_FR, " - ", 2,simplify = T)[,1]
+        CommonName_FR <- str_split(CommonName_FR, " - ", 2,simplify = T)[,1]
+      }
+      if((!is.na(CommonName_EN)) & str_detect(CommonName_EN,"subspecies")){
+        strings <- str_split_1(CommonName_EN," ")
+        index <- which(str_detect(strings,"subspecies"))
+        New_Species$Subspecies_EN[i] <- paste0(strings[c(index-1,index)],collapse = " ")
+        New_Species$CommonName_EN[i] <- paste0(strings[-c(index-1,index)],collapse = " ")
+        CommonName_EN <- paste0(strings[-c(index-1,index)],collapse = " ")
+      }
+      if((!is.na(CommonName_FR)) & str_detect(CommonName_FR," de la sous-espèce")){
+        New_Species$Subspecies_FR[i] <- paste0("de la sous-espèce",str_split(CommonName_FR, " de la sous-espèce", 2,simplify = T)[,2])
+        New_Species$CommonName_FR[i] <- str_split(CommonName_FR, " de la sous-espèce", 2,simplify = T)[,1]
+        
+      }
+      if((!is.na(CommonName_EN)) & TaxonomicLevel=="Subspecies" & str_detect(CommonName_EN," - ")){
+        New_Species$Population_EN[i] <- str_split(CommonName_EN, " - ", 2,simplify = T)[,2]
+        New_Species$CommonName_EN[i] <- str_split(CommonName_EN, " - ", 2,simplify = T)[,1]
+        CommonName_EN <- str_split(CommonName_EN, " - ", 2,simplify = T)[,1]
+      }
+      if((!is.na(CommonName_FR)) & TaxonomicLevel=="Subspecies" & str_detect(CommonName_FR," - ")){
+        New_Species$Population_FR[i] <- str_split(CommonName_FR, " - ", 2,simplify = T)[,2]
+        New_Species$CommonName_FR[i] <- str_split(CommonName_FR, " - ", 2,simplify = T)[,1]
+        CommonName_FR <- str_split(CommonName_FR, " - ", 2,simplify = T)[,1]
+      }
+      ### Clean up
+      CommonName_EN <- str_replace(CommonName_EN," -$","")
+      CommonName_EN <- str_replace(CommonName_EN,",$","")
+      New_Species$CommonName_EN[i] <- CommonName_EN
+      
+      
+    }
+  }
+  return(New_Species)
+}
 
 
 
