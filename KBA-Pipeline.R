@@ -8,7 +8,6 @@
 ###################################################################################################
 
 #### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior)
-#### TO DO: Do not send protected area information if boundarygeneralization == "3"
 #### TO DO: Add way to match new records to previously existing IDs (e.g. for citations - if a given citation was already used in a previous KBA proposal)
 #### TO DO: Don't send global sites to Registry if they don't have a WDKBAID
 #### TO DO: Find substitutes for everything that is hard coded
@@ -866,6 +865,10 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            IUCNCat_EN = iucncat_en,
            IUCNCat_FR = iucncat_fr) %>%
     select(all_of(colnames(REG_KBA_ProtectedArea)))
+  
+  if(DBS_KBASite$boundarygeneralization == "3"){ # If boundary generalization = 3, do not send protected area information
+    REGS_KBA_ProtectedArea <- REGS_KBA_ProtectedArea[0,]
+  }
   
   # Species
   REGS_Species <- REGA_Species %>%
