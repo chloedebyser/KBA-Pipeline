@@ -11,7 +11,7 @@
 #### TO DO: Add way to match new records to previously existing IDs (e.g. for citations - if a given citation was already used in a previous KBA proposal)
 #### TO DO: Don't send global sites to Registry if they don't have a WDKBAID
 #### TO DO: Find substitutes for everything that is hard coded
-#### TO DO: Add SARA_STATUS_DATE when available in BIOTICS_ELEMENT_NATIONAL
+#### TO DO: Populate IUCNLink, ContinentalPopulationSize, and CitationContinentalPopulation
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.)
 #### TO DO: Implement FootnoteID (right now it is just set to NA)
 
@@ -185,18 +185,18 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          COSEWICAssessmentDate = cosewic_date,
          COSEWICStatusCriteria = cosewic_assess_criteria,
          SARAStatus = sara_status,
+         SARAAssessmentDate = sara_status_date,
          NSGRank = g_rank,
          NSGRankReviewDate = g_rank_review_date,
          NSNRank = n_rank,
          NSNRankReviewDate = n_rank_review_date,
          NSLink = nsx_url) %>%
   left_join(., Bird_Species, by="NSElementCode") %>%
-  mutate(Subspecies_EN = NA, # TO DO: populate
-         Subspecies_FR = NA, # TO DO: populate
-         Population_EN = NA, # TO DO: populate
-         Population_FR = NA, # TO DO: populate
+  mutate(Subspecies_EN = NA,
+         Subspecies_FR = NA,
+         Population_EN = NA,
+         Population_FR = NA,
          IUCNLink = NA, # TO DO: populate
-         SARAAssessmentDate = NA, # TO DO: populate
          ContinentalPopulationSize = NA, # TO DO: populate
          CitationContinentalPopulation = NA, # TO DO: populate
          Sensitive = 0,
