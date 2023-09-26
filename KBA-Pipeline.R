@@ -12,11 +12,9 @@
 #### TO DO: Add way to match new records to previously existing IDs (e.g. for citations - if a given citation was already used in a previous KBA proposal)
 #### TO DO: Don't send global sites to Registry if they don't have a WDKBAID
 #### TO DO: Find substitutes for everything that is hard coded
-#### TO DO: Add SARA_STATUS_DATE and NSX_URL when available in BIOTICS_ELEMENT_NATIONAL
+#### TO DO: Add SARA_STATUS_DATE when available in BIOTICS_ELEMENT_NATIONAL
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.)
 #### TO DO: Implement FootnoteID (right now it is just set to NA)
-#### TO DO: For species that lack an IUCN/COSEWIC assessment, replace NAs with ID for "Not Assessed" (see updated IUCNStatus and COSEWICStatus lookup tables)
-
 
 #### Workspace ####
 # Packages
@@ -147,7 +145,7 @@ for(id in c(83, 440, 615, 616, 618)){
 }
 
 #### SPECIES - Update all species ####
-# Read in Bird Specific Data
+# Read in Bird-specific data
 Bird_Species <- fromJSON("https://kba-maps.deanrobertevans.ca/api/species") %>%
   select(nselementcode,birdalphacode,bcspeciesid,nationaltrend,nationaltrendreference) %>% 
   rename(NSElementCode=nselementcode,
@@ -155,6 +153,7 @@ Bird_Species <- fromJSON("https://kba-maps.deanrobertevans.ca/api/species") %>%
          BCSpeciesID=bcspeciesid,
          NationalTrend=nationaltrend,
          CitationNationalTrend=nationaltrendreference)
+
 # Create initial dataframe
 REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
   left_join(., DB_Species, by="speciesid") %>%
@@ -207,7 +206,9 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
                                          "B",
                                          ifelse(endemism == "Probable",
                                                 "P",
-                                                endemism))))) %>%
+                                                endemism)))),
+         iucn_cd = ifelse(is.na(iucn_cd), "NE", iucn_cd),
+         cosewic_status = ifelse(is.na(cosewic_status) | (cosewic_status == "Non-active/Nonactive"), "NA", cosewic_status)) %>%
   left_join(., REG_IUCNStatus, by=c("iucn_cd" = "Nomenclature")) %>%
   left_join(., REG_COSEWICStatus, by=c("cosewic_status" = "Nomenclature"))
 
@@ -288,8 +289,8 @@ crosswalk_SpeciesID <- REGA_Species %>%
 REGA_Species %<>%
   select(all_of(colnames(REG_Species)))
 
-### Update species names
-REGA_Species <- updateSpeciesNames(REGA_Species)
+# Update species names
+REGA_Species %<>% updateSpeciesNames(.)
 
 # Only retain species that are in the Registry database
 REGU_Species <- REGA_Species %>%
@@ -1030,7 +1031,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   #### KBA_Threats ####
   
-  # Create new full table in case systems have been added or removed from a site
+  # Create new full table in case threats have been added or removed from a site
   New_KBA_Threats <- REG_KBA_Threats %>% 
     filter(SiteID %!in% REGS_KBA_Threats$SiteID) %>% 
     bind_rows(REGS_KBA_Threats) %>%
@@ -1045,7 +1046,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   #### KBA_Conservation ####
   
-  # Create new full table in case systems have been added or removed from a site
+  # Create new full table in case conservation records have been added or removed from a site
   New_KBA_Conservation <- REG_KBA_Conservation %>% 
     filter(SiteID %!in% REGS_KBA_Conservation$SiteID) %>% 
     bind_rows(REGS_KBA_Conservation) %>%
@@ -1060,7 +1061,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   #### KBA_Habitat ####
   
-  # Create new full table in case systems have been added or removed from a site
+  # Create new full table in case habitat records have been added or removed from a site
   New_KBA_Habitat <- REG_KBA_Habitat %>% 
     filter(SiteID %!in% REGS_KBA_Habitat$SiteID) %>% 
     bind_rows(REGS_KBA_Habitat) %>%
@@ -1074,7 +1075,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   #### KBA_ProtectedArea ####
   
-  #Create new full table in case systems have been added or removed from a site
+  # Create new full table in case protected areas have been added or removed from a site
   New_KBA_ProtectedArea <- REG_KBA_ProtectedArea %>%
     filter(SiteID %!in% REGS_KBA_ProtectedArea$SiteID) %>%
     bind_rows(REGS_KBA_ProtectedArea) %>%
@@ -1089,7 +1090,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   #### KBA_Citation ####
   
-  # Create new full table in case systems have been added or removed from a site
+  # Create new full table in case citations have been added or removed from a site
   New_KBA_Citation <- REG_KBA_Citation %>% 
     filter(SiteID %!in% REGS_KBA_Citation$SiteID) %>% 
     bind_rows(REGS_KBA_Citation) %>%
@@ -1113,7 +1114,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   SpeciesLinks <- REGS_Species %>% filter(!SpeciesID %in% REG_Species_Link$SpeciesID,!Sensitive)
   REGS_Species_Link <- getSpeciesLinks(SpeciesLinks)
 
-  # Create new full table in case systems have been added or removed from a site
+  # Create new full table in case species links have been added or removed from a site
   New_Species_Link <- REG_Species_Link %>%
     filter(SpeciesID %!in% REGS_Species_Link$SpeciesID) %>%
     bind_rows(REGS_Species_Link) %>%
@@ -1128,7 +1129,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   #### Species_Citation ####
   
-  # Create new full table in case systems have been added or removed from a site
+  # Create new full table in case species citations have been added or removed from a site
   New_Species_Citation <- REG_Species_Citation %>% 
     filter(SpeciesID %!in% REGS_Species_Citation$SpeciesID) %>% 
     bind_rows(REGS_Species_Citation) %>%
@@ -1188,7 +1189,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   #### Ecosystem_Citation ####
   
-  # Create new full table in case systems have been added or removed from a site
+  # Create new full table in case ecosystem citations have been added or removed from a site
   New_Ecosystem_Citation <- REG_Ecosystem_Citation %>% 
     filter(EcosystemID %!in% REGS_Ecosystem_Citation$EcosystemID) %>% 
     bind_rows(REGS_Ecosystem_Citation) %>%
