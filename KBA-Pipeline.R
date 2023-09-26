@@ -747,7 +747,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            Name_FR = ifelse(is.na(nationalname_fr), Name_EN, nationalname_fr),
            Level_EN = ifelse(grepl("Global", kbalevel_en), "Global", "National"),
            BoundaryGeneralized = ifelse(boundarygeneralization == 3, 1, 0),
-           Obsolete = ifelse(sitestatus %in% c(9, 10), 1, 0),
+           Obsolete = ifelse(sitestatus == 9, "Replaced", ifelse(sitestatus == 10, "Delisted", NA)),
            Latitude = round(lat_wgs84, 2),
            Longitude = round(long_wgs84, 2),
            PercentProtected = round(percentprotected, 0)) %>%
