@@ -770,7 +770,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            NationalCriteriaSummary_EN = ifelse(grepl("NATIONAL", criteriasummary_en), substr(criteriasummary_en, start=gregexpr("NATIONAL:", criteriasummary_en)[[1]][1]+10, stop=nchar(criteriasummary_en)-1), NA),
            NationalCriteriaSummary_FR = ifelse(grepl("NATIONAL", criteriasummary_fr), substr(criteriasummary_fr, start=gregexpr("NATIONAL :", criteriasummary_fr)[[1]][1]+11, stop=nchar(criteriasummary_fr)-1), NA),
            Conservation_EN = ifelse(Conservation_EN == "None", NA, Conservation_EN),
-           Conservation_FR = ifelse(Conservation_FR %in% c("Aucune", "Aucune"), NA, Conservation_FR),
+           Conservation_FR = ifelse(Conservation_FR %in% c("Aucun", "Aucune"), NA, Conservation_FR),
            ObsoleteReason_EN = ObsoleteReason_EN,
            ObsoleteReason_FR = ObsoleteReason_FR) %>%
     select(all_of(colnames(REG_KBA_Website)))
