@@ -29,6 +29,7 @@ library(RPostgres)
 library(DBI)
 library(mailR)
 library(jsonlite)
+library(openxlsx)
 
 # Functions
       # Key KBA functions
@@ -56,6 +57,9 @@ rm(env, env_vars, var)
 
 # Coordinate reference system
 crs <- readRDS("crs.RDS")
+
+# COSEWIC Links
+COSEWICLinks <- read.xlsx("COSEWIC_Links.xlsx")
 
 # KBA-EBAR database information
 Sys.sleep(20)
@@ -194,7 +198,6 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          Population_FR = NA, # TO DO: populate
          IUCNLink = NA, # TO DO: populate
          SARAAssessmentDate = NA, # TO DO: populate
-         COSEWICLink = NA, # TO DO: populate
          ContinentalPopulationSize = NA, # TO DO: populate
          CitationContinentalPopulation = NA, # TO DO: populate
          Sensitive = 0,
@@ -210,7 +213,9 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          iucn_cd = ifelse(is.na(iucn_cd), "NE", iucn_cd),
          cosewic_status = ifelse(is.na(cosewic_status) | (cosewic_status == "Non-active/Nonactive"), "NA", cosewic_status)) %>%
   left_join(., REG_IUCNStatus, by=c("iucn_cd" = "Nomenclature")) %>%
-  left_join(., REG_COSEWICStatus, by=c("cosewic_status" = "Nomenclature"))
+  left_join(., REG_COSEWICStatus, by=c("cosewic_status" = "Nomenclature")) %>%
+  left_join(., COSEWICLinks[,c("ELEMENT_NATIONAL_ID", "Link")], by=c("element_national_id" = "ELEMENT_NATIONAL_ID")) %>%
+  rename(COSEWICLink = Link)
 
 # Add range information
       # Prepare range information
