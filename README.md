@@ -1,2 +1,2 @@
 # KBA-Pipeline
-R code for moving data between the KBA-EBAR database and the KBA Registry.
+R code for moving data from the KBA-EBAR database to the KBA Registry.
