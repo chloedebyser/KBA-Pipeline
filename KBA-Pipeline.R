@@ -53,6 +53,9 @@ for(env in env_vars){
 }
 rm(env, env_vars, var)
 
+# variable to inform if error occurs in the data prep phase 
+initError<- FALSE
+tryCatch({
 # Coordinate reference system
 crs <- readRDS("crs.RDS")
 
@@ -432,6 +435,20 @@ REGU_Ecosystem <- REGA_Ecosystem %>%
 
 # Update all ecosystems that are currently on the Registry
 registryDB %>% update.table("Ecosystem", "EcosystemID", REGU_Ecosystem, REG_Ecosystem)
+
+},error=function(e){
+  initError<<- TRUE # error happened
+  # Send email about error to Dean and Chloe
+  pipline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
+                password = mailtrap_pass,
+                message = paste0("The following error occured during the data prep phase of the KBA Pipeline: ",
+                                 e[["message"]]))
+  
+})
+
+# Only proceed if there was no initial errors
+
+if(!initError){
 
 #### SITES - Add & update sites in need of publishing, including related records ####
 # Initialize sensitive species information
@@ -1322,3 +1339,4 @@ if(nrow(siteErrors)>0 | length(cleanupError) >0){
 }
 
 # Send completion email - TO DO: to Sandra, Amanda, etc.
+} 
