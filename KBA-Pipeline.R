@@ -53,9 +53,10 @@ for(env in env_vars){
 }
 rm(env, env_vars, var)
 
-# variable to inform if error occurs in the data prep phase 
+# Variable to inform if error occurs in the data prep phase 
 initError<- FALSE
 tryCatch({
+  
 # Coordinate reference system
 crs <- readRDS("crs.RDS")
 
@@ -438,16 +439,15 @@ registryDB %>% update.table("Ecosystem", "EcosystemID", REGU_Ecosystem, REG_Ecos
 
 },error=function(e){
   initError<<- TRUE # error happened
-  # Send email about error to Dean and Chloe
-  pipline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
+  
+  # Send email about error to Dean and Chloé
+  pipeline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
                 password = mailtrap_pass,
                 message = paste0("The following error occured during the data prep phase of the KBA Pipeline: ",
                                  e[["message"]]))
-  
 })
 
 # Only proceed if there was no initial errors
-
 if(!initError){
 
 #### SITES - Add & update sites in need of publishing, including related records ####
@@ -462,8 +462,17 @@ sensitiveSpecies <- data.frame(speciesatsiteid = integer(),
                                kba_group = character(),
                                display_alternativegroup = character())
 
-# Create empty dataframe to store errors
-siteErrors<- data.frame(site=character(),sitecode=character(),error=character())
+# Initialize site notification information
+siteNotifications <- data.frame(sitecode = character(),
+                                sitename = character(),
+                                jurisdiction = character(),
+                                type = character(),
+                                leademail = character())
+
+# Initialize error information
+siteErrors <- data.frame(site=character(),
+                         sitecode=character(),
+                         error=character())
 
 # Site processing
 for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
@@ -1025,6 +1034,17 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     mutate(Area = round(as.double(st_area(.))), 3) %>%
     select(all_of(colnames(REG_InternalBoundary)))
   
+  ### Check whether this is a new site or version
+  if(!REG_siteID %in% REG_KBA_Site$SiteID){
+    siteNotification <- "New site"
+    
+  }else if(!REGS_KBA_Site$Version == REG_KBA_Site$Version[which(REG_KBA_Site$SiteID == REG_siteID)]){ # TO DO: Check that this works correctly with Canadian Lake Superior
+    siteNotification <- "New version"
+    
+  }else{
+    siteNotification <- NA
+  }
+  
   ### Add/update information for the site in the Registry Database ###
   # Start transaction
   registryDB %>% dbBegin()
@@ -1255,6 +1275,16 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # End transaction, if no errors
   registryDB %>% dbCommit()
   
+  ### If new site or version, add to notification list
+  if(!is.na(siteNotification)){
+    siteNotifications %<>%
+      add_row(sitecode = DBS_KBASite$sitecode,
+              sitename = DBS_KBASite$nationalname,
+              jurisdiction = DBS_KBASite$jurisdiction_en,
+              type = siteNotification,
+              leademail = DBS_KBASite$proposallead_email)
+  }
+  
   ### Print site name ###
   print(DBS_KBASite$nationalname)
   
@@ -1271,7 +1301,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   })
   
   ### Remove site-specific data ###
-  rm(list=setdiff(ls(), c(ls(pattern = "DB_"), ls(pattern = "REG_"), ls(pattern = "REGA_"), "id", "lastPipelineRun", "relevantReferenceEstimates_spp", "relevantReferenceEstimates_eco", "sensitiveSpecies", "maxSensitiveSpeciesID", "read_KBACanadaProposalForm", "read_KBAEBARDatabase", "filter_KBAEBARDatabase", "check_KBADataValidity", "trim_KBAEBARDataset", "update_KBAEBARDataset", "primaryKey_KBAEBARDataset")))
+  rm(list=setdiff(ls(), c(ls(pattern = "DB_"), ls(pattern = "REG_"), ls(pattern = "REGA_"), "id", "lastPipelineRun", "relevantReferenceEstimates_spp", "relevantReferenceEstimates_eco", "sensitiveSpecies", "maxSensitiveSpeciesID", "siteNotifications", "siteErrors", "dataTables", "registryDB", "crosswalk_SpeciesID", "crosswalk_EcosystemID", "read_KBACanadaProposalForm", "read_KBAEBARDatabase", "filter_KBAEBARDatabase", "check_KBADataValidity", "trim_KBAEBARDataset", "update_KBAEBARDataset", "primaryKey_KBAEBARDataset")))
 }
 rm(id)
 
@@ -1326,17 +1356,50 @@ if(nrow(siteErrors)>0 | length(cleanupError) >0){
   errortext <- if(nrow(siteErrors)>0 ){paste0("<li>",siteErrors$site," (",siteErrors$sitecode,"): ",siteErrors$error,"</li>",collapse = "")} else {""}
   errortext <- paste0(errortext,if(length(cleanupError) >0){paste0("<li>Cleanup Error: ",cleanupError,"</li>",collapse = "")}else{""})
   body <- paste0("KBA Pipeline run completed with ",errornumber," errors. Errors are as follows: <ul>",errortext,"</ul>")
-  pipline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
+  pipeline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
                 password = mailtrap_pass,
                 message = body)
   
 }else{
-  pipline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
+  pipeline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
                 password = mailtrap_pass,
                 message = "KBA Pipeline run completed with no errors!")
   
   # TO DO: Add write to RDS to save last pipeline run
 }
 
-# Send completion email - TO DO: to Sandra, Amanda, etc.
-} 
+# Send completion email
+if(nrow(siteNotifications) > 0){
+  
+  # Generate text information about every site
+  siteNotifications %<>%
+    arrange(sitename) %>%
+    mutate(text = paste0("• ", sitename, " (", jurisdiction, "): https://kbacanada.org/site/?SiteCode=", sitecode))
+  
+  # Body of email
+  notificationMessage <- "REGISTRY UPDATE NOTIFICATION"
+  
+  if(siteNotifications %>% filter(type == "New site") %>% nrow(.) > 0){
+    notificationMessage <- paste0(notificationMessage,
+                                  "\n\nThe following sites were added to the Registry:\n",
+                                  paste(siteNotifications %>% filter(type == "New site") %>% pull(text), collapse="\n"))
+  }
+  
+  if(siteNotifications %>% filter(type == "New version") %>% nrow(.) > 0){
+    notificationMessage <- paste0(notificationMessage,
+                                  "\n\nNew versions of the following sites were published on the Registry:\n",
+                                  paste(siteNotifications %>% filter(type == "New version") %>% pull(text), collapse="\n"))
+  }
+  writeLines(notificationMessage)
+  
+  # Vector of emails to notify
+  notificationEmails <-  c("devans@birdscanada.org", "smarquez@birdscanada.org", "abichel@birdscanada.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org") %>%
+    c(., siteNotifications$leademail) %>%
+    unique()
+  
+  # Send email
+  pipeline.email(to = notificationEmails,
+                 password = mailtrap_pass,
+                 message = notificationMessage)
+}
+}
