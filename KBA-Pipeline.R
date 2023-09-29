@@ -10,7 +10,7 @@
 #### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior)
 #### TO DO: Don't send global sites to Registry if they don't have a WDKBAID
 #### TO DO: Find substitutes for everything that is hard coded
-#### TO DO: Populate IUCNLink, ContinentalPopulationSize, and CitationContinentalPopulation
+#### TO DO: Populate ContinentalPopulationSize and CitationContinentalPopulation
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.)
 #### TO DO: Implement FootnoteID (right now it is just set to NA)
 
@@ -181,7 +181,7 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          Subspecies_FR = NA,
          Population_EN = NA,
          Population_FR = NA,
-         IUCNLink = NA, # TO DO: populate
+         IUCNLink = ifelse(!is.na(IUCNTaxonID), paste0("https://www.iucnredlist.org/species/", IUCNTaxonID,"/", IUCNAssessmentID), NA),
          ContinentalPopulationSize = NA, # TO DO: populate
          CitationContinentalPopulation = NA, # TO DO: populate
          Sensitive = 0,
