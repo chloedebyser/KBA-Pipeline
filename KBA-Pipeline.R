@@ -1286,7 +1286,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   }
   
   ### Print site name ###
-  print(DBS_KBASite$nationalname)
+  print(paste0(DBS_KBASite$nationalname," (",DBS_KBASite$sitecode,")"))
   
   ### End of tryCatch call ###
   }, error=function(e){
@@ -1374,23 +1374,24 @@ if(nrow(siteNotifications) > 0){
   # Generate text information about every site
   siteNotifications %<>%
     arrange(sitename) %>%
-    mutate(text = paste0("• ", sitename, " (", jurisdiction, "): https://kbacanada.org/site/?SiteCode=", sitecode))
+    mutate(text = paste0("&emsp;&bull; ", sitename, " (", jurisdiction, "): https://kbacanada.org/site/?SiteCode=", sitecode))
   
   # Body of email
-  notificationMessage <- "REGISTRY UPDATE NOTIFICATION"
+  notificationMessage <- ""
   
   if(siteNotifications %>% filter(type == "New site") %>% nrow(.) > 0){
     notificationMessage <- paste0(notificationMessage,
-                                  "\n\nThe following sites were added to the Registry:\n",
-                                  paste(siteNotifications %>% filter(type == "New site") %>% pull(text), collapse="\n"))
+                                  "<br><br>The following sites were added to the Registry:<br>",
+                                  paste(siteNotifications %>% filter(type == "New site") %>% pull(text), collapse="<br>"),
+                                  "<br>")
   }
   
   if(siteNotifications %>% filter(type == "New version") %>% nrow(.) > 0){
     notificationMessage <- paste0(notificationMessage,
-                                  "\n\nNew versions of the following sites were published on the Registry:\n",
-                                  paste(siteNotifications %>% filter(type == "New version") %>% pull(text), collapse="\n"))
+                                  "<br><br>New versions of the following sites were published on the Registry:<br>",
+                                  paste(siteNotifications %>% filter(type == "New version") %>% pull(text), collapse="<br>"),
+                                  "<br>")
   }
-  writeLines(notificationMessage)
   
   # Vector of emails to notify
   notificationEmails <-  c("devans@birdscanada.org", "smarquez@birdscanada.org", "abichel@birdscanada.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org") %>%
@@ -1400,6 +1401,7 @@ if(nrow(siteNotifications) > 0){
   # Send email
   pipeline.email(to = notificationEmails,
                  password = mailtrap_pass,
+                 subject = "KBA Registry Update Notification",
                  message = notificationMessage)
 }
 }

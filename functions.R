@@ -334,17 +334,17 @@ cleanup.internalboundary <- function(.db){
   }
 }
 
-pipeline.email <- function(to=c(),password="",message=""){
+pipeline.email <- function(to=c(),password="",message="",subject="KBA Canada Pipeline"){
   mailR::send.mail(from = "pipeline@kbacanada.com",
-            to = to,
-            subject = "KBA Canada Pipeline",
-            body = message,
-            html = T,
-            smtp = list(host.name = "live.smtp.mailtrap.io", port = 587,
-                        user.name = "api",
-                        passwd = password, ssl = TRUE),
-            authenticate = TRUE,
-            send = TRUE)
+                   to = to,
+                   subject = subject,
+                   body = message,
+                   html = T,
+                   smtp = list(host.name = "live.smtp.mailtrap.io", port = 587,
+                               user.name = "api",
+                               passwd = password, ssl = TRUE),
+                   authenticate = TRUE,
+                   send = TRUE)
   
 }
 
