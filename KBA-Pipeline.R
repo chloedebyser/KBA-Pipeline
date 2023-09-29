@@ -302,8 +302,8 @@ REGA_Species %<>% updateSpeciesNames(.)
 REGU_Species <- REGA_Species %>%
   filter(NSElementCode %in% REG_Species$NSElementCode)
 
-# TO DO: Use symdiff to find changes - need to add footnotes
-test <- symdiff(REG_Species, REGU_Species)
+# TO DO: need to add footnotes
+
 
 # Update all species that are currently on the Registry (excluding sensitive species)
 registryDB %>% update.table("Species", "SpeciesID", REGU_Species, REG_Species)
