@@ -809,8 +809,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            GlobalCriteriaSummary_FR = ifelse(grepl("MONDIAL", criteriasummary_fr), ifelse(grepl("NATIONAL", criteriasummary_fr), substr(criteriasummary_fr, start=11, stop=gregexpr("NATIONAL :", criteriasummary_fr)[[1]][1]-3), substr(criteriasummary_fr, start=11, stop=nchar(criteriasummary_fr)-1)), NA),
            NationalCriteriaSummary_EN = ifelse(grepl("NATIONAL", criteriasummary_en), substr(criteriasummary_en, start=gregexpr("NATIONAL:", criteriasummary_en)[[1]][1]+10, stop=nchar(criteriasummary_en)-1), NA),
            NationalCriteriaSummary_FR = ifelse(grepl("NATIONAL", criteriasummary_fr), substr(criteriasummary_fr, start=gregexpr("NATIONAL :", criteriasummary_fr)[[1]][1]+11, stop=nchar(criteriasummary_fr)-1), NA),
-           Conservation_EN = ifelse(Conservation_EN == "None", NA, Conservation_EN),
-           Conservation_FR = ifelse(Conservation_FR %in% c("Aucun", "Aucune"), NA, Conservation_FR),
+           Conservation_EN = ifelse(Conservation_EN == "<p>None</p>", "<p>There are no known conservation actions at this site.</p>", Conservation_EN),
+           Conservation_FR = ifelse(Conservation_FR %in% c("<p>Aucun</p>", "<p>Aucune</p>"), "<p>Le site ne bénificie d'aucune action de conservation connue.</p>", Conservation_FR),
            ObsoleteReason_EN = ObsoleteReason_EN,
            ObsoleteReason_FR = ObsoleteReason_FR) %>%
     select(all_of(colnames(REG_KBA_Website)))
