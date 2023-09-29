@@ -335,7 +335,7 @@ cleanup.internalboundary <- function(.db){
 }
 
 pipeline.email <- function(to=c(),password="",message=""){
-  mailR::send.mail(from = "pipeline@kbacanada.",
+  mailR::send.mail(from = "pipeline@kbacanada.com",
             to = to,
             subject = "KBA Canada Pipeline",
             body = message,
