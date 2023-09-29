@@ -38,7 +38,6 @@ source("functions.R")
 
 # Date of last pipeline run
 lastPipelineRun <- readRDS("lastPipelineRun.RDS")
-lastPipelineRun <- as.POSIXct("2023-09-01", tz = "GMT") # TO DO: update this parameter so it contains the date of last pipeline run (start time, or perhaps even a little before to ensure no sites are missed)
 
 # Environment variables 
 env_vars <- c("kbapipeline_pswd", "postgres_user", "postgres_pass", "database_name", "database_host", "mailtrap_pass", "database_port")
@@ -97,7 +96,7 @@ for(lookupTable in lookupTables){
 rm(lookupTable, lookupTables)
 
       # Data tables
-dataTables <- list(c("KBA_Site", T), c("KBA_Website", F), c("KBA_Citation", F), c("KBA_Conservation", F), c("KBA_Threats", F), c("KBA_System", F), c("KBA_Habitat", F), c("KBA_ProtectedArea", F), c("Species", F), c("Species_Citation", F), c("KBA_SpeciesAssessments", F), c("Ecosystem", F), c("Ecosystem_Citation", F), c("KBA_EcosystemAssessments", F), c("SpeciesAssessment_Subcriterion", F), c("EcosystemAssessment_Subcriterion", F), c("Footnote", F), c("InternalBoundary", T), c("Species_Link", F))
+dataTables <- list(c("KBA_Site", T), c("KBA_Website", F), c("KBA_Citation", F), c("KBA_Conservation", F), c("KBA_Threats", F), c("KBA_System", F), c("KBA_Habitat", F), c("KBA_ProtectedArea", F), c("Species", F), c("Species_Citation", F), c("KBA_SpeciesAssessments", F), c("Ecosystem", F), c("Ecosystem_Citation", F), c("KBA_EcosystemAssessments", F), c("SpeciesAssessment_Subcriterion", F), c("EcosystemAssessment_Subcriterion", F), c("Footnote", F), c("InternalBoundary", T), c("Species_Link", F),c("BackupDate",F))
 
 for(i in 1:length(dataTables)){
   
@@ -116,6 +115,12 @@ for(i in 1:length(dataTables)){
   rm(data)
 }
 rm(i)
+
+# Check if backup date is greater than last pipeline run
+backupdate <- REG_BackupDate %>% filter(datetime==max(datetime)) %>% pull(datetime) %>% force_tz(.,tzone="Canada/Eastern")
+
+# Force error if backup has not occured since the last pipeline run
+if(backupdate<lastPipelineRun){stop("Last backup happened before the most recent pipeline run. Please check if backups are still working.")}
 
 #### Temporary site filters/data edits ####
 # TEMP: REMOVE BIRD SITES BECAUSE NO FINAL PROPOSAL FORM - TO DO: Remove this once the Proposal Form Import Tool has been run for all bird sites
@@ -1347,7 +1352,8 @@ if(nrow(siteErrors)>0 | length(cleanupError) >0){
                 password = mailtrap_pass,
                 message = "KBA Pipeline run completed with no errors!")
   
-  # TO DO: Add write to RDS to save last pipeline run
+  lastPipelineRun <- Sys.time() - 2*3600 # minus two hours just to make sure nothing is missed
+  saveRDS(lastPipelineRun,"lastPipelineRun.RDS")
 }
 
 # Send completion email
