@@ -10,7 +10,7 @@
 #### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior)
 #### TO DO: Don't send global sites to Registry if they don't have a WDKBAID
 #### TO DO: Find substitutes for everything that is hard coded
-#### TO DO: Populate IUCNLink, ContinentalPopulationSize, and CitationContinentalPopulation
+#### TO DO: Populate ContinentalPopulationSize and CitationContinentalPopulation
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.)
 #### TO DO: Implement FootnoteID (right now it is just set to NA)
 
@@ -132,24 +132,6 @@ DB_KBASite %<>%
 DB_Ecosystem %<>%
   mutate(kba_group = replace(kba_group, ecosystemid == DB_BIOTICS_ECOSYSTEM[which(DB_BIOTICS_ECOSYSTEM$cnvc_english_name == "Manitoba Alvar"), "ecosystemid"], "Grassland & Shrubland"))
 
-# TEMP: PRETEND 5 NEW SITES ARE CONFIRMED
-      # Update confirm date
-DB_KBASite %<>%
-  mutate(confirmdate = replace(confirmdate, kbasiteid %in% c(83, 440, 615, 616, 618), Sys.time() %>% with_tz(., tzone="GMT")))
-
-      # Update N_* fields
-for(id in c(83, 440, 615, 616, 618)){
-  
-  filter_KBAEBARDatabase(KBASiteIDs = id, RMUnfilteredDatasets = F)
-  
-  DB_KBASite %<>% mutate(n_speciesatsite = replace(n_speciesatsite, kbasiteid == id, nrow(DBS_SpeciesAtSite)),
-                         n_ecosystematsite = replace(n_ecosystematsite, kbasiteid == id, nrow(DBS_EcosystemAtSite)),
-                         n_originaldelineation = replace(n_originaldelineation, kbasiteid == id, nrow(DBS_OriginalDelineation)),
-                         n_biodivelementdistribution = replace(n_biodivelementdistribution, kbasiteid == id, nrow(DBS_BiodivElementDistribution)),
-                         n_kbainputpolygon = replace(n_kbainputpolygon, kbasiteid == id, nrow(DBS_KBAInputPolygon)),
-                         n_kbacustompolygon = replace(n_kbacustompolygon, kbasiteid == id, nrow(DBS_KBACustomPolygon)))
-}
-
 #### SPECIES - Update all species ####
 # Read in Bird-specific data
 Bird_Species <- fromJSON("https://kba-maps.deanrobertevans.ca/api/species") %>%
@@ -199,7 +181,7 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          Subspecies_FR = NA,
          Population_EN = NA,
          Population_FR = NA,
-         IUCNLink = NA, # TO DO: populate
+         IUCNLink = ifelse(!is.na(IUCNTaxonID), paste0("https://www.iucnredlist.org/species/", IUCNTaxonID,"/", IUCNAssessmentID), NA),
          ContinentalPopulationSize = NA, # TO DO: populate
          CitationContinentalPopulation = NA, # TO DO: populate
          Sensitive = 0,
