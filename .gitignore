@@ -2,3 +2,13 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# Shapefiles #
+##############
+*.dbf
+*.fix
+*.prj
+*.qix
+*.shp
+*.shx
+*.zip

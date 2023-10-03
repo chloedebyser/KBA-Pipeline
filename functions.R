@@ -334,17 +334,20 @@ cleanup.internalboundary <- function(.db){
   }
 }
 
-pipeline.email <- function(to=c(),password="",message="",subject="KBA Canada Pipeline"){
-  mailR::send.mail(from = "pipeline@kbacanada.com",
-                   to = to,
-                   subject = subject,
-                   body = message,
-                   html = T,
-                   smtp = list(host.name = "live.smtp.mailtrap.io", port = 587,
-                               user.name = "api",
-                               passwd = password, ssl = TRUE),
-                   authenticate = TRUE,
-                   send = TRUE)
+pipeline.email <- function(to=c(),password="",message="",subject="KBA Canada Pipeline",attachment=NULL){
+
+      mailR::send.mail(from = "pipeline@kbacanada.com",
+                     to = to,
+                     subject = subject,
+                     body = message,
+                     html = T,
+                     attach.files=attachment,
+                     smtp = list(host.name = "live.smtp.mailtrap.io", port = 587,
+                                 user.name = "api",
+                                 passwd = password, ssl = TRUE),
+                     authenticate = TRUE,
+                     send = TRUE)
+  
   
 }
 
@@ -401,4 +404,38 @@ updateSpeciesNames <- function(species){
 }
 
 
-
+create.shapefile <- function(registryDB,path="Shapefile",sitecodes=c()){
+  Province <- registryDB %>% tbl("KBA_Province") %>% collect()
+  KBA_Site <- registryDB %>% read_sf("KBA_Site") %>% 
+    filter(SiteCode %in% sitecodes,!BoundaryGeneralized) %>%
+    left_join(Province, by="ProvinceID") %>%
+    rename(Province=Abbreviation,Date=DateAssessed) %>%
+    select(SiteID,SiteCode,Name_EN,Name_FR,Province,Version,Date,Latitude,Longitude)%>%
+    mutate(Date=as.Date(Date))
+  # Delete all files first
+  unlink(list.files("Shapefile",full.names = T))
+  # Write KBA_Site
+  write_sf(KBA_Site,file.path(path,"KBA_Site.shp"))
+  # Find Internal Boundaries
+  KBA_SpeciesAssessment <- registryDB %>% tbl("KBA_SpeciesAssessments") %>% collect() %>%
+    filter(SiteID %in% KBA_Site$SiteID) %>%
+    left_join(KBA_Site,by="SiteID") %>%
+    select(SiteCode,InternalBoundaryID)
+  KBA_EcosystemAssessment <- registryDB %>% tbl("KBA_EcosystemAssessments") %>% collect() %>%
+    filter(SiteID %in% KBA_Site$SiteID) %>%
+    left_join(KBA_Site,by="SiteID") %>%
+    select(SiteCode,InternalBoundaryID)
+  getInternalBoundaries <- bind_rows(KBA_SpeciesAssessment,KBA_EcosystemAssessment)
+  InternalBoundaries <- registryDB %>% read_sf("InternalBoundary") %>% 
+    filter(InternalBoundaryID %in% getInternalBoundaries$InternalBoundaryID) %>%
+    left_join(getInternalBoundaries,by="InternalBoundaryID") %>%
+    relocate(SiteCode) %>%
+    rename(BoundaryID=InternalBoundaryID) %>%
+    select(SiteCode,BoundaryID,Name_EN,Name_FR)
+  if(nrow(InternalBoundaries)>0){
+    write_sf(InternalBoundaries,file.path(path,"InternalBoundary.shp"))
+  }
+  ### Zip file
+  zip::zip(file.path(path,paste0("KBAs_",Sys.Date(),".zip")),list.files("Shapefile",full.names = T),mode = "cherry-pick")
+  return(file.path(path,paste0("KBAs_",Sys.Date(),".zip")))
+}

@@ -40,7 +40,7 @@ source("functions.R")
 lastPipelineRun <- readRDS("lastPipelineRun.RDS")
 
 # Environment variables 
-env_vars <- c("kbapipeline_pswd", "postgres_user", "postgres_pass", "database_name", "database_host", "mailtrap_pass", "database_port")
+env_vars <- c("kbapipeline_pswd", "postgres_user", "postgres_pass", "database_name", "database_host", "mailtrap_pass", "database_port","geoserver_pass","docker_env")
 
 for(env in env_vars){
   
@@ -1280,15 +1280,16 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     registryDB %>% dbRollback() ### rollback site on error
     message(paste(DBS_KBASite$nationalname, "KBA not processed."))
     # Store error info
-    siteErrors <<- rbind(siteErrors,data.frame(site=DBS_KBASite$nationalname,
-                                          sitecode=DBS_KBASite$sitecode,
-                                          error=e[["message"]]))
+    siteErrors <<- siteErrors %>% 
+      add_row(site=DBS_KBASite$nationalname,
+              sitecode=DBS_KBASite$sitecode,
+              error=e[["message"]])
     message(e)
 
   })
   
   ### Remove site-specific data ###
-  rm(list=setdiff(ls(), c(ls(pattern = "DB_"), ls(pattern = "REG_"), ls(pattern = "REGA_"), "id", "lastPipelineRun", "relevantReferenceEstimates_spp", "relevantReferenceEstimates_eco", "sensitiveSpecies", "maxSensitiveSpeciesID", "siteNotifications", "siteErrors", "dataTables", "registryDB", "crosswalk_SpeciesID", "crosswalk_EcosystemID", "read_KBACanadaProposalForm", "read_KBAEBARDatabase", "filter_KBAEBARDatabase", "check_KBADataValidity", "trim_KBAEBARDataset", "update_KBAEBARDataset", "primaryKey_KBAEBARDataset", "mailtrap_pass", "pipeline.email", "cleanup.internalboundary", "cleanup.footnote", "cleanup.ecosystems", "cleanup.species", "delete.sites", "getSpeciesLinks", "url_exists", "update.table", "delete.id", "updatetextSQL", "%!in%")))
+  rm(list=setdiff(ls(), c(ls(pattern = "DB_"), ls(pattern = "REG_"), ls(pattern = "REGA_"), "id", "lastPipelineRun", "relevantReferenceEstimates_spp", "relevantReferenceEstimates_eco", "sensitiveSpecies", "maxSensitiveSpeciesID", "siteNotifications", "siteErrors", "dataTables", "registryDB", "crosswalk_SpeciesID", "crosswalk_EcosystemID", "read_KBACanadaProposalForm", "read_KBAEBARDatabase", "filter_KBAEBARDatabase", "check_KBADataValidity", "trim_KBAEBARDataset", "update_KBAEBARDataset", "primaryKey_KBAEBARDataset", "mailtrap_pass", "pipeline.email", "cleanup.internalboundary", "cleanup.footnote", "cleanup.ecosystems", "cleanup.species", "delete.sites", "getSpeciesLinks", "url_exists", "update.table", "delete.id", "updatetextSQL", "%!in%","create.shapefile", "geoserver_pass","docker_env")))
 }
 rm(id)
 
@@ -1344,16 +1345,21 @@ if(nrow(siteErrors)>0 | length(cleanupError) >0){
   errortext <- paste0(errortext,if(length(cleanupError) >0){paste0("<li>Cleanup Error: ",cleanupError,"</li>",collapse = "")}else{""})
   body <- paste0("KBA Pipeline run completed with ",errornumber," errors. Errors are as follows: <ul>",errortext,"</ul>")
   pipeline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
+                subject = "KBA Registry Error Notification",
                 password = mailtrap_pass,
                 message = body)
   
 }else{
-  pipeline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
-                password = mailtrap_pass,
-                message = "KBA Pipeline run completed with no errors!")
-  
   lastPipelineRun <- Sys.time() - 2*3600 # minus two hours just to make sure nothing is missed
   saveRDS(lastPipelineRun,"lastPipelineRun.RDS")
+}
+
+# if on production refresh vector tiles
+if(docker_env=="Production"){
+  httr::POST(url = "https://kbacanada.org/geoserver/gwc/rest/masstruncate",
+             config = authenticate("admin",geoserver_pass,type = "basic"),
+             body = "<truncateLayer><layerName>kba:KBASite</layerName></truncateLayer>",
+             content_type("text/xml"))
 }
 
 # Send completion email
@@ -1382,14 +1388,37 @@ if(nrow(siteNotifications) > 0){
   }
   
   # Vector of emails to notify
-  notificationEmails <-  c("devans@birdscanada.org", "smarquez@birdscanada.org", "abichel@birdscanada.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org") %>%
+  notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org") %>%
     c(., siteNotifications$leademail) %>%
     unique()
   
-  # Send email
+  # Send email if on production
+  if(docker_env=="Production"){
   pipeline.email(to = notificationEmails,
                  password = mailtrap_pass,
                  subject = "KBA Registry Update Notification",
                  message = notificationMessage)
+  # Prepare shapefile for Sandra
+  shapefilePath <- create.shapefile(registryDB,path="Shapefile",sitecodes=siteNotifications$sitecode)
+  #Send to Sandra
+  pipeline.email(to = "smarquez@birdscanada.org",
+                 password = mailtrap_pass,
+                 subject = "KBA Registry Update Notification",
+                 message = notificationMessage,
+                 attachment = shapefilePath)
+  } else {
+    pipeline.email(to = c("devans@birdscanada.org","cdebyser@wcs.org"),
+                   password = mailtrap_pass,
+                   subject = "KBA Registry Update Notification",
+                   message = notificationMessage)
+    
+  }
 }
+} else {
+  pipeline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
+                 subject = "KBA Registry Notification",
+                 password = mailtrap_pass,
+                 message = "KBA Pipeline run completed with no errors!")
 }
+# close database connection
+registryDB %>% dbDisconnect()
