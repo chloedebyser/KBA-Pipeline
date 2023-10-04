@@ -290,8 +290,6 @@ REGA_Species %<>% updateSpeciesNames(.)
 REGU_Species <- REGA_Species %>%
   filter(NSElementCode %in% REG_Species$NSElementCode)
 
-# TO DO: need to add footnotes
-
 
 # Update all species that are currently on the Registry (excluding sensitive species)
 registryDB %>% update.table("Species", "SpeciesID", REGU_Species, REG_Species)
@@ -936,6 +934,17 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            FootnoteID = NA,
            AssessmentParameter_EN = ifelse(nrow(.)>0, str_to_sentence(substr(assessmentparameter, start=gregexpr(")", assessmentparameter, fixed=T)[[1]][1]+2, stop=nchar(assessmentparameter))), "")) %>%
     left_join(., REG_AssessmentParameter[,c("AssessmentParameterID", "AssessmentParameter_EN")], by="AssessmentParameter_EN") %>%
+    left_join(.,REG_KBA_SpeciesAssessments %>% 
+                select(SpeciesID,SiteID,DateAssessed,Original_ScientificName,Original_CommonNameFR, Original_CommonNameEN) %>% distinct(),
+              by=c("SiteID","SpeciesID","DateAssessed"))  %>%
+    left_join(.,crosswalk_SpeciesID,by=c("SpeciesID"="REG_SpeciesID")) %>%
+    left_join(.,DB_BIOTICS_ELEMENT_NATIONAL %>% select(speciesid,national_scientific_name,national_engl_name, national_fr_name), by=c("DB_SpeciesID"="speciesid")) %>% 
+    mutate(Original_ScientificName=case_when(is.na(Original_ScientificName)~national_scientific_name,
+                                             .default = Original_ScientificName),
+           Original_CommonNameEN=case_when(is.na(Original_CommonNameEN)~national_engl_name,
+                                           .default = Original_CommonNameEN),
+           Original_CommonNameFR=case_when(is.na(Original_CommonNameFR)~national_fr_name,
+                                           .default = Original_CommonNameFR))%>%
     select(all_of(colnames(REG_KBA_SpeciesAssessments)))
     
   # SpeciesAssessment_Subcriterion
@@ -998,6 +1007,26 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     mutate(SiteID = REG_siteID,
            EcosystemStatus = ifelse(is.na(status_value), NA, paste0(status_value, " (", status_assessmentagency, ")")) %>% as.character(),
            FootnoteID = NA) %>%
+    left_join(.,REG_KBA_EcosystemAssessments %>% 
+                select(SiteID,EcosystemID,DateAssessed,
+                       Original_ScientificNameEN,Original_ScientificNameFR,
+                       Original_TypeFR,Original_TypeEN),by=c("SiteID","EcosystemID","DateAssessed")) %>%
+    left_join(.,crosswalk_EcosystemID,by=c("EcosystemID"="REG_EcosystemID")) %>%
+    left_join(.,DB_BIOTICS_ECOSYSTEM %>% 
+                select(ecosystemid,ivc_formatted_scientific_name, 
+                       cnvc_english_name,cnvc_french_name), by=c("DB_EcosystemID"="ecosystemid"))%>% 
+    left_join(.,DB_Ecosystem %>% 
+                select(ecosystemid,ivc_formatted_scientific_name_fr, 
+                       ivc_name_fr), by=c("DB_EcosystemID"="ecosystemid"))%>% 
+    mutate(Original_ScientificNameEN=case_when(is.na(Original_ScientificNameEN)~ivc_formatted_scientific_name,
+                                             .default = Original_ScientificNameEN),
+           Original_ScientificNameFR=case_when(is.na(Original_ScientificNameFR)~ivc_formatted_scientific_name_fr,
+                                           .default = Original_ScientificNameFR),
+           Original_TypeFR=case_when(is.na(Original_TypeFR) & is.na(cnvc_french_name)~ivc_name_fr,
+                                     is.na(Original_TypeFR) ~ cnvc_french_name,
+                                           .default = Original_TypeFR),
+           Original_TypeEN=case_when(is.na(Original_TypeEN)~cnvc_english_name,
+                                           .default = Original_TypeEN))%>%
     select(all_of(colnames(REG_KBA_EcosystemAssessments)))
   
   # EcosystemAssessment_Subcriterion
