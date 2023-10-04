@@ -419,7 +419,6 @@ REGA_Ecosystem %<>%
 REGU_Ecosystem <- REGA_Ecosystem %>%
   filter(NSElementCode_IVC %in% REG_Ecosystem$NSElementCode_IVC)
 
-# TO DO: Use symdiff to find changes
 
 # Update all ecosystems that are currently on the Registry
 registryDB %>% update.table("Ecosystem", "EcosystemID", REGU_Ecosystem, REG_Ecosystem)

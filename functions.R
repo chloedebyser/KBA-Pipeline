@@ -60,7 +60,8 @@ update.table <-function(.db,tablename="",primarykey="",newdata,existingdata,full
         
       } 
     } else {
-      existingdata %<>% filter(!!as.symbol(primarykey) %in% newdata[,primarykey])
+      newpks <- newdata %>% pull(!!as.symbol(primarykey))
+      existingdata %<>% filter(!!as.symbol(primarykey) %in% newpks)
     }
     ### Sperate data into add or updates
     existingpks <- existingdata %>% pull(!!as.symbol(primarykey))
