@@ -123,9 +123,6 @@ backupdate <- REG_BackupDate %>% filter(datetime==max(datetime)) %>% pull(dateti
 if(backupdate<lastPipelineRun){stop("Last backup happened before the most recent pipeline run. Please check if backups are still working.")}
 
 #### Temporary site filters/data edits ####
-# TEMP: REMOVE BIRD SITES BECAUSE NO FINAL PROPOSAL FORM - TO DO: Remove this once the Proposal Form Import Tool has been run for all bird sites
-DB_KBASite %<>%
-  filter(is.na(birdstechnicalreviewlink))
 
 # TEMP: PRETENT MARBLE RIDGE ALVAR IS ACCEPTED - TO DO: Remove once done with testing
 DB_KBASite %<>%
@@ -779,12 +776,18 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            SiteHistory_EN = sitehistory_en,
            SiteHistory_FR = sitehistory_fr) %>%
     mutate(SiteID = REG_siteID,
-           SiteDescription_EN = sitedescription_en %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .),
-           SiteDescription_FR = sitedescription_fr %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .),
-           Conservation_EN = conservation_en %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .),
-           Conservation_FR = conservation_fr %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .),
-           BiodiversitySummary_EN = paste0("<p>", gsub("\n\n", "</p><p>", ifelse(is.na(additionalbiodiversity_en), nominationrationale_en, paste(nominationrationale_en, additionalbiodiversity_en, sep="\n\n"))), "</p>"),
-           BiodiversitySummary_FR = paste0("<p>", gsub("\n\n", "</p><p>", ifelse(is.na(additionalbiodiversity_fr), nominationrationale_fr, paste(nominationrationale_fr, additionalbiodiversity_fr, sep="\n\n"))), "</p>"),
+           SiteDescription_EN = ifelse(str_detect(sitedescription_en,"<p>"),sitedescription_en,sitedescription_en %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .)),
+           SiteDescription_FR = ifelse(str_detect(sitedescription_fr,"<p>"),sitedescription_fr, sitedescription_fr %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .)),
+           Conservation_EN = ifelse(str_detect(conservation_en,"<p>"),conservation_en,conservation_en %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .)),
+           Conservation_FR = ifelse(str_detect(conservation_fr,"<p>"),conservation_fr,conservation_fr %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .)),
+           BiodiversitySummary_EN = case_when(
+           is.na(additionalbiodiversity_en) & str_detect(nominationrationale_en,"<p>") ~ nominationrationale_en,
+           str_detect(nominationrationale_en,"<p>") & str_detect(additionalbiodiversity_en,"<p>") ~ paste0(nominationrationale_en,additionalbiodiversity_en),
+           .default = paste0("<p>", gsub("\n\n", "</p><p>", ifelse(is.na(additionalbiodiversity_en), nominationrationale_en, paste(nominationrationale_en, additionalbiodiversity_en, sep="\n\n"))), "</p>")),
+           BiodiversitySummary_FR = case_when(
+           is.na(additionalbiodiversity_fr) & str_detect(nominationrationale_fr,"<p>") ~ nominationrationale_fr,
+           str_detect(nominationrationale_fr,"<p>") & str_detect(additionalbiodiversity_fr,"<p>") ~ paste0(nominationrationale_fr,additionalbiodiversity_fr),
+           .default = paste0("<p>", gsub("\n\n", "</p><p>", ifelse(is.na(additionalbiodiversity_fr), nominationrationale_fr, paste(nominationrationale_fr, additionalbiodiversity_fr, sep="\n\n"))), "</p>")),
            CustomaryJurisdiction_EN = customaryjurisdiction_en %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .),
            CustomaryJurisdiction_FR = customaryjurisdiction_fr %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .),
            CustomaryJurisdictionSource_EN = customaryjurisdictionsrce_en %>% gsub("\n\n", "</p><p>", .) %>% paste0("<p>", ., "</p>") %>% ifelse(. == "<p>NA</p>", NA, .),
