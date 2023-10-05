@@ -1,10 +1,12 @@
 # 1. Clean Environment
 rm(list = ls())
-# 2. Git Pull most recent version
+# 2. Set working directory to current location
+setwd(getSrcDirectory(function(){})[1])
+# 3. Git Pull most recent version
 system("git pull")
-# 3. Run Pipeline
+# 4. Run Pipeline
 source("KBA-Pipeline.R")
-# 4. Clean Environment
+# 5. Clean Environment
 rm(list = ls())
-# 5. Garbage collection for ram
+# 6. Garbage collection for ram
 gc()

@@ -28,8 +28,6 @@ library(DBI)
 library(mailR)
 library(jsonlite)
 library(openxlsx)
-# Set working Directory to file location
-setwd(getSrcDirectory(function(){})[1])
 
 # Functions
       # Key KBA functions
