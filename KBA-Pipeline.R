@@ -1355,10 +1355,10 @@ tryCatch({
   registryDB %>% delete.sites(deletesitecodes)
   
   # Clean up other records 
-  db %>% cleanup.internalboundary()
-  db %>% cleanup.footnote()
-  db %>% cleanup.species()
-  db %>% cleanup.ecosystems()
+  registryDB %>% cleanup.internalboundary()
+  registryDB %>% cleanup.footnote()
+  registryDB %>% cleanup.species()
+  registryDB %>% cleanup.ecosystems()
   
   # End transaction, if no errors
   registryDB %>% dbCommit()
