@@ -1047,7 +1047,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            InternalBoundarySummary_EN = description_en,
            InternalBoundarySummary_FR = description_fr) %>%
     mutate(Area = round(as.double(st_area(.))), 3) %>%
-    select(all_of(colnames(REG_InternalBoundary)))
+    select(all_of(colnames(REG_InternalBoundary))) %>% 
+    st_cast("MULTIPOLYGON")
   
   ### Check whether this is a new site or version
   if(!REG_siteID %in% REG_KBA_Site$SiteID){
