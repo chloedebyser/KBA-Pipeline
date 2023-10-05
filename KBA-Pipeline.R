@@ -454,7 +454,8 @@ siteNotifications <- data.frame(sitecode = character(),
 siteErrors <- data.frame(site=character(),
                          sitecode=character(),
                          error=character())
-
+# Variable to record if transaction is occuring
+transaction <- FALSE
 # Site processing
 for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
@@ -484,7 +485,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   accepted <- DB_KBASite %>%
     filter(kbasiteid == id) %>%
     pull(sitestatus) %>%
-    {ifelse(. >= 6, T, F)}
+    {ifelse(is.na(.),F,ifelse(. >= 6, T, F))}
   
   if(!accepted){next}
   
@@ -1067,7 +1068,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   ### Add/update information for the site in the Registry Database ###
   # Start transaction
   registryDB %>% dbBegin()
-  
+  transaction <<- TRUE
   # KBA_Site
   registryDB %>% update.table("KBA_Site","SiteID",REGS_KBA_Site,REG_KBA_Site)
   
@@ -1293,7 +1294,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   # End transaction, if no errors
   registryDB %>% dbCommit()
-  
+  transaction <<- FALSE
   ### If new site or version, add to notification list
   if(!is.na(siteNotification)){
     siteNotifications %<>%
@@ -1309,7 +1310,9 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   ### End of tryCatch call ###
   }, error=function(e){
+    if(transaction){
     registryDB %>% dbRollback() ### rollback site on error
+    }
     message(paste(DBS_KBASite$nationalname, "KBA not processed."))
     # Store error info
     siteErrors <<- siteErrors %>% 
@@ -1321,7 +1324,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   })
   
   ### Remove site-specific data ###
-  rm(list=setdiff(ls(), c(ls(pattern = "DB_"), ls(pattern = "REG_"), ls(pattern = "REGA_"), "id", "lastPipelineRun", "relevantReferenceEstimates_spp", "relevantReferenceEstimates_eco", "sensitiveSpecies", "maxSensitiveSpeciesID", "siteNotifications", "siteErrors", "dataTables", "registryDB", "crosswalk_SpeciesID", "crosswalk_EcosystemID", "read_KBACanadaProposalForm", "read_KBAEBARDatabase", "filter_KBAEBARDatabase", "check_KBADataValidity", "trim_KBAEBARDataset", "update_KBAEBARDataset", "primaryKey_KBAEBARDataset", "mailtrap_pass", "pipeline.email", "cleanup.internalboundary", "cleanup.footnote", "cleanup.ecosystems", "cleanup.species", "delete.sites", "getSpeciesLinks", "url_exists", "update.table", "delete.id", "updatetextSQL", "%!in%","create.shapefile", "geoserver_pass","docker_env")))
+  rm(list=setdiff(ls(), c(ls(pattern = "DB_"), ls(pattern = "REG_"), ls(pattern = "REGA_"), "id", "lastPipelineRun", "relevantReferenceEstimates_spp", "relevantReferenceEstimates_eco", "sensitiveSpecies", "maxSensitiveSpeciesID", "siteNotifications", "siteErrors", "dataTables", "registryDB", "crosswalk_SpeciesID", "crosswalk_EcosystemID", "read_KBACanadaProposalForm", "read_KBAEBARDatabase", "filter_KBAEBARDatabase", "check_KBADataValidity", "trim_KBAEBARDataset", "update_KBAEBARDataset", "primaryKey_KBAEBARDataset", "mailtrap_pass", "pipeline.email", "cleanup.internalboundary", "cleanup.footnote", "cleanup.ecosystems", "cleanup.species", "delete.sites", "getSpeciesLinks", "url_exists", "update.table", "delete.id", "updatetextSQL", "%!in%","create.shapefile", "geoserver_pass","docker_env","transaction")))
 }
 rm(id)
 
