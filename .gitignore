@@ -3,6 +3,7 @@
 .RData
 .Ruserdata
 *.log
+lastPipelineRun.RDS
 
 # Shapefiles #
 ##############
