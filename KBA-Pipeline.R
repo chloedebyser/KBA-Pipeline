@@ -14,6 +14,7 @@
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.)
 #### TO DO: Implement FootnoteID (right now it is just set to NA)
 
+
 #### Workspace ####
 # Packages
 library(httr)
