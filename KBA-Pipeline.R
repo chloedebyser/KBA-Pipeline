@@ -1202,10 +1202,10 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # KBA_SpeciesAssessments &  SpeciesAssessment_Subcriterion
         # Do left join on SpeciesAssessment_Subcriterion
   REG_SpeciesAssessment <- REG_SpeciesAssessment_Subcriterion %>%
-    left_join(REG_KBA_SpeciesAssessments, by="SpeciesAssessmentsID")
+    full_join(REG_KBA_SpeciesAssessments, by="SpeciesAssessmentsID")
   
   REGS_SpeciesAssessment <- REGS_SpeciesAssessment_Subcriterion %>%
-    left_join(REGS_KBA_SpeciesAssessments, by="SpeciesAssessmentsID")
+    full_join(REGS_KBA_SpeciesAssessments, by="SpeciesAssessmentsID")
   
         # Rebuild tables
   New_SpeciesAssessment <- REG_SpeciesAssessment %>% 
@@ -1217,7 +1217,9 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   
   New_SpeciesAssessment_Subcriterion <- New_SpeciesAssessment %>%
-    select(all_of(names(REG_SpeciesAssessment_Subcriterion)))
+    select(all_of(names(REG_SpeciesAssessment_Subcriterion))) %>%
+    filter(!is.na(SubcriterionID)) %>%
+    mutate(AssessmentSubcriterionID=if(n()>0) 1:n() else 0) 
   
   New_KBA_SpeciesAssessments <- New_SpeciesAssessment %>%
     select(all_of(names(REG_KBA_SpeciesAssessments))) %>% distinct()
@@ -1258,10 +1260,10 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # KBA_EcosystemAssessments &  EcosystemAssessment_Subcriterion
         # Do left join on SpeciesAssessment_Subcriterion
   REG_EcosystemAssessment <- REG_EcosystemAssessment_Subcriterion %>%
-    left_join(REG_KBA_EcosystemAssessments, by="EcosystemAssessmentsID")
+    full_join(REG_KBA_EcosystemAssessments, by="EcosystemAssessmentsID")
   
   REGS_EcosystemAssessment <- REGS_EcosystemAssessment_Subcriterion %>%
-    left_join(REGS_KBA_EcosystemAssessments, by="EcosystemAssessmentsID")
+    full_join(REGS_KBA_EcosystemAssessments, by="EcosystemAssessmentsID")
   
         # Rebuild tables
   New_EcosystemAssessment <- REG_EcosystemAssessment %>% 
@@ -1273,6 +1275,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   New_EcosystemAssessment_Subcriterion <- New_EcosystemAssessment %>%
     select(all_of(names(REG_EcosystemAssessment_Subcriterion)))
+  filter(!is.na(SubcriterionID)) %>%
+    mutate(EcoAssessmentSubcriterionID=if(n()>0) 1:n() else 0) 
   
   New_KBA_EcosystemAssessments <- New_EcosystemAssessment %>%
     select(all_of(names(REG_KBA_EcosystemAssessments))) %>% distinct()
@@ -1313,6 +1317,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   }, error=function(e){
     if(transaction){
     registryDB %>% dbRollback() ### rollback site on error
+      transaction <- FALSE
     }
     message(paste(DBS_KBASite$nationalname, "KBA not processed."))
     # Store error info
