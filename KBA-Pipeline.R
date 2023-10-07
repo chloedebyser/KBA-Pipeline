@@ -709,7 +709,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     nrow()
   
               # Maximum SpeciesID already in the Registry
-  maxSpeciesID <- max(REG_Species$SpeciesID, na.rm=T) %>%
+  maxSpeciesID <- max(REG_Species$SpeciesID[REG_Species$SpeciesID<1000000], na.rm=T) %>%
     {ifelse(. < 0, 0, .)} %>%
     suppressWarnings()
   
