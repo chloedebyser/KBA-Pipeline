@@ -1274,7 +1274,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     group_by(SiteID, EcosystemID, DateAssessed, EcosystemStatus, PercentAtSite, MinSiteExtent, BestSiteExtent, MaxSiteExtent, SiteExtentSources, MinRefExtent, BestRefExtent, MaxRefExtent, RefExtentSources, FootnoteID, InternalBoundaryID) %>% mutate(EcosystemAssessmentsID=if(n()>0) cur_group_id() else 0) %>% ungroup()
   
   New_EcosystemAssessment_Subcriterion <- New_EcosystemAssessment %>%
-    select(all_of(names(REG_EcosystemAssessment_Subcriterion)))
+    select(all_of(names(REG_EcosystemAssessment_Subcriterion))) %>%
   filter(!is.na(SubcriterionID)) %>%
     mutate(EcoAssessmentSubcriterionID=if(n()>0) 1:n() else 0) 
   
