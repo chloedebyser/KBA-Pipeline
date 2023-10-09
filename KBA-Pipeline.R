@@ -1391,7 +1391,7 @@ if(nrow(siteErrors)>0 | length(cleanupError) >0){
                 message = body)
   
 }else{
-  lastPipelineRun <- Sys.time() - 2*3600 # minus two hours just to make sure nothing is missed
+  lastPipelineRun <- Sys.time() - 3*3600 # minus two hours just to make sure nothing is missed
   saveRDS(lastPipelineRun,"lastPipelineRun.RDS")
 }
 
@@ -1455,11 +1455,12 @@ if(nrow(siteNotifications) > 0){
     
   }
 }
-} else {
+ else {
   pipeline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
                  subject = "KBA Registry Notification",
                  password = mailtrap_pass,
                  message = "KBA Pipeline run completed with no errors!")
+ }
 }
 # close database connection
 registryDB %>% dbDisconnect()
