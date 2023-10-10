@@ -14,8 +14,7 @@
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.)
 #### TO DO: Implement FootnoteID (right now it is just set to NA)
 
-# Start message that pipeline has started with datetime for log file
-message(paste0("\n\n\n\n\nStarting Pipeline at ", Sys.time(),"\n\n\n\n\n"))
+
 #### Workspace ####
 # Packages
 library(httr)
@@ -1465,5 +1464,3 @@ if(nrow(siteNotifications) > 0){
 }
 # close database connection
 registryDB %>% dbDisconnect()
-# End message that pipeline has finished with datetime for log file
-message(paste0("\n\n\n\n\nFinishing Pipeline at ", Sys.time(),"\n\n\n\n\n"))
