@@ -1462,5 +1462,7 @@ if(nrow(siteNotifications) > 0){
                  message = "KBA Pipeline run completed with no errors!")
  }
 }
-# close database connection
+# close database connection if it exists
+if(exists("registryDB")){
 registryDB %>% dbDisconnect()
+}
