@@ -13,6 +13,7 @@
 #### TO DO: Populate ContinentalPopulationSize and CitationContinentalPopulation
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.)
 #### TO DO: Implement FootnoteID (right now it is just set to NA)
+#### TO DO: Update email notification code so that it accounts for multiple emails in the proposal development lead field (separated by semi-colons)
 
 
 #### Workspace ####
@@ -1391,7 +1392,7 @@ if(nrow(siteErrors)>0 | length(cleanupError) >0){
                 message = body)
   
 }else{
-  lastPipelineRun <- Sys.time() - 3*3600 # minus two hours just to make sure nothing is missed
+  lastPipelineRun <- Sys.time() - 3*3600 # minus three hours just to make sure nothing is missed
   saveRDS(lastPipelineRun,"lastPipelineRun.RDS")
 }
 
