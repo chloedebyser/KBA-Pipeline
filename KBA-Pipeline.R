@@ -120,7 +120,9 @@ rm(i)
 backupdate <- REG_BackupDate %>% filter(datetime==max(datetime)) %>% pull(datetime) %>% force_tz(.,tzone="Canada/Eastern")
 
 # Force error if backup has not occured since the last pipeline run
-if(backupdate<lastPipelineRun){stop("Last backup happened before the most recent pipeline run. Please check if backups are still working.")}
+if(backupdate < lastPipelineRun){
+  stop("There has not been a backup since the last pipeline run. Please check if backups are still working.")
+}
 
 # #### Temporary site filters/data edits ####
 # # TEMP: PRETENT MARBLE RIDGE ALVAR IS ACCEPTED - TO DO: Remove once done with testing
@@ -287,7 +289,6 @@ REGA_Species %<>% updateSpeciesNames(.)
 REGU_Species <- REGA_Species %>%
   filter(NSElementCode %in% REG_Species$NSElementCode)
 
-
 # Update all species that are currently on the Registry (excluding sensitive species)
 registryDB %>% update.table("Species", "SpeciesID", REGU_Species, REG_Species)
 
@@ -414,7 +415,6 @@ REGA_Ecosystem %<>%
 REGU_Ecosystem <- REGA_Ecosystem %>%
   filter(NSElementCode_IVC %in% REG_Ecosystem$NSElementCode_IVC)
 
-
 # Update all ecosystems that are currently on the Registry
 registryDB %>% update.table("Ecosystem", "EcosystemID", REGU_Ecosystem, REG_Ecosystem)
 
@@ -454,8 +454,10 @@ siteNotifications <- data.frame(sitecode = character(),
 siteErrors <- data.frame(site=character(),
                          sitecode=character(),
                          error=character())
+
 # Variable to record if transaction is occuring
 transaction <- FALSE
+
 # Site processing
 for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
@@ -485,7 +487,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   accepted <- DB_KBASite %>%
     filter(kbasiteid == id) %>%
     pull(sitestatus) %>%
-    {ifelse(is.na(.),F,ifelse(. >= 6, T, F))}
+    {ifelse(is.na(.), F, ifelse(. >= 6, T, F))}
   
   if(!accepted){next}
   
@@ -517,6 +519,15 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # Check whether site should be processed in the current pipeline run
   processSite <- (overall_last_edited_date <= DBS_KBASite$confirmdate) & (!addition_deletion) & (overall_last_edited_date >= lastPipelineRun)
   
+  # TEMP - Stop ecosystem sites from being processed in the production environment until UI is ready
+  if(docker_env=="Production"){
+    
+    if(nrow(DBS_EcosystemAtSite) > 0){
+      processSite <- F
+    }
+  }
+  
+  # Only proceed with the rest of the loop if the site is ready for processing
   if(!processSite){next}
   
   ### Only retain biodiversity elements that meet KBA criteria ###
@@ -1394,7 +1405,7 @@ if(nrow(siteErrors)>0 | length(cleanupError) >0){
   saveRDS(lastPipelineRun,"lastPipelineRun.RDS")
 }
 
-# if on production refresh vector tiles
+# If on production, refresh vector tiles
 if(docker_env=="Production"){
   httr::POST(url = "https://kbacanada.org/geoserver/gwc/rest/masstruncate",
              config = authenticate("admin",geoserver_pass,type = "basic"),
