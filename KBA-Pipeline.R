@@ -10,7 +10,6 @@
 #### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior) - Make sure it doesn't get treated as replaced - Chloé
 #### TO DO: Don't send global sites to Registry if they don't have a WDKBAID - Chloé
 #### TO DO: Find substitutes for everything that is hard coded - Chloé
-#### TO DO: Populate ContinentalPopulationSize and CitationContinentalPopulation - Chloé
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.) - Dean
 #### TO DO: Implement FootnoteID (right now it is just set to NA) - Dean
 
@@ -186,8 +185,6 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          Population_EN = NA,
          Population_FR = NA,
          IUCNLink = ifelse(!is.na(IUCNTaxonID), paste0("https://www.iucnredlist.org/species/", IUCNTaxonID,"/", IUCNAssessmentID), NA),
-         ContinentalPopulationSize = NA, # TO DO: populate (if D1 national for Birds, reference population = continental population) AND don't populate national
-         CitationContinentalPopulation = NA, # TO DO: populate (if D1 national for Birds, reference population = continental population) AND don't populate national
          Sensitive = 0,
          Endemism = ifelse(endemism == "Yes (the element is endemic)",
                            "Y",
@@ -239,14 +236,22 @@ REGA_Species %<>%
 rm(speciesRange, range, range_en, range_fr)
 
 # Add reference population size
-      # Get estimates that are relevant to the KBA Registry (i.e. most recent # of mature individuals global/national estimate, across all SpeciesAssessment records in the KBA-EBAR database)
+      # Only retain assessments based on number of mature individuals and with a best estimate
 relevantReferenceEstimates_spp <- DB_SpeciesAssessment %>%
   left_join(., DB_SpeciesAtSite[,c("speciesatsiteid", "speciesid")], by="speciesatsiteid") %>%
   filter(assessmentparameter == "(i) number of mature individuals") %>% # Only retain the record if the assessment parameter = number of mature individuals
-  filter(!is.na(referenceestimate_best)) %>% # Only retain record if there is a best reference estimate
+  filter(!is.na(referenceestimate_best)) # Only retain record if there is a best reference estimate
+
+      # For birds assessed under nD1, the reference population corresponds to the continental population
+relevantReferenceEstimates_spp %<>%
+  left_join(., DB_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "kba_group")], by="speciesid") %>%
+  mutate(kbalevel = replace(kbalevel, (kba_group == "Birds") & str_detect(criteriamet, "nD1"), "Continental"))
+
+      # Get most recent estimate per species and per level
+relevantReferenceEstimates_spp %<>%
   group_by(speciesid, kbalevel) %>%
   arrange(speciesid, kbalevel, desc(dateassessed)) %>%
-  filter(row_number()==1) # Only retain the most recent SpeciesAssessment per species and per KBALevel
+  filter(row_number()==1)
 
       # Format
 relevantReferenceEstimates_spp %<>%
@@ -255,10 +260,13 @@ relevantReferenceEstimates_spp %<>%
          Citation = referenceestimate_sources) %>%
   pivot_wider(names_from = kbalevel, values_from = c(PopulationSize, Citation), names_glue = "{kbalevel}{.value}") %>%
   mutate(GlobalCitation = ifelse('GlobalCitation' %in% names(.), GlobalCitation, NA),
+         ContinentalCitation = ifelse('ContinentalCitation' %in% names(.), ContinentalCitation, NA),
          NationalCitation = ifelse('NationalCitation' %in% names(.), NationalCitation, NA),
          GlobalPopulationSize = ifelse('GlobalPopulationSize' %in% names(.), GlobalPopulationSize, NA),
+         ContinentalPopulationSize = ifelse('ContinentalPopulationSize' %in% names(.), ContinentalPopulationSize, NA),
          NationalPopulationSize = ifelse('NationalPopulationSize' %in% names(.), NationalPopulationSize, NA)) %>%
   rename(CitationGlobalPopulation = GlobalCitation,
+         CitationContinentalPopulation = ContinentalCitation,
          CitationNationalPopulation = NationalCitation)
 
       # Add to dataframe
