@@ -7,9 +7,10 @@
 # Instead, please edit the code locally and push your edits to the GitHub repository.             #
 ###################################################################################################
 
-#### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior) - Make sure it doesn't get treated as replaced - Chloé
+#### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior) - Make sure it doesn't get treated as replaced + handle TO DOs in code itself - Chloé
 #### TO DO: Don't send global sites to Registry if they don't have a WDKBAID - Chloé
-#### TO DO: Find substitutes for everything that is hard coded - Chloé
+#### TO DO: Populate Group and IUCNLink for ecosystems - Chloé
+#### TO DO: Handle other TO DOs in the code itself - Chloé
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.) - Dean
 #### TO DO: Implement FootnoteID (right now it is just set to NA) - Dean
 
@@ -340,7 +341,7 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
          IUCNLink = NA) %>% # TO DO: Populate
   left_join(., REG_IUCNStatus, by=c("iucn_cd" = "Nomenclature")) %>%
   left_join(., REG_Ecosystem_Class[,c("EcosystemClassID", "ClassName_EN")], by=c("Subclass_EN" = "ClassName_EN"))
-  
+
 # Add range information
       # Prepare range information
 ecosystemRange <- DB_BIOTICS_ECOSYSTEM %>%
@@ -527,7 +528,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # Check whether site should be processed in the current pipeline run
   processSite <- (overall_last_edited_date <= DBS_KBASite$confirmdate) & (!addition_deletion) & (overall_last_edited_date >= lastPipelineRun)
   
-  # TEMP - Stop ecosystem sites from being processed in the production environment until UI is ready
+  # TEMP - Stop ecosystem sites from being processed in the production environment until UI is ready (TO DO: Remove once UI is ready)
   if(docker_env=="Production"){
     
     if(nrow(DBS_EcosystemAtSite) > 0){
@@ -600,30 +601,38 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     globalNotAccepted_triggers <- DBS_SpeciesAtSite %>%
       filter(!is.na(globalcriteria)) %>%
       left_join(., DBS_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "national_scientific_name", "national_engl_name", "national_fr_name")], by="speciesid") %>%
-      select(national_scientific_name, national_engl_name, national_fr_name)
+      mutate(national_scientific_name = replace(national_scientific_name, display_taxonname == "No", NA),
+             national_engl_name = replace(national_engl_name, display_taxonname == "No", "a sensitive species"),
+             national_fr_name = replace(national_fr_name, display_taxonname == "No", "une espèce sensible")) %>%
+      select(national_scientific_name, national_engl_name, national_fr_name) %>%
+      group_by(national_scientific_name, national_engl_name, national_fr_name) %>%
+      summarize(count = n(), .groups="keep") %>%
+      mutate(national_engl_name = replace(national_engl_name, (national_engl_name == "a sensitive species") & (count > 1), paste(count, "sensitive species")),
+             national_fr_name = replace(national_fr_name, (national_fr_name == "une espèce sensible") & (count > 1), paste(count, "espèces sensibles"))) %>%
+      select(-count) %>%
+      distinct()
     
           # Compute extra disclaimer
                 # English
     extraDisclaimer_EN <- globalNotAccepted_triggers %>%
-      arrange(national_engl_name) %>%
-      mutate(extradisclaimer_en = paste0("<p>The following taxa are being proposed as global KBA triggers: ",
-                                         paste0(paste0(national_engl_name, " (<i>", national_scientific_name, "</i>)"), collapse="; "),
-                                         ". Once accepted, this site will become a global KBA. In the meantime, it is a national KBA.</p>")) %>%
-      ungroup() %>%
-      pull(extradisclaimer_en)
-    
+      mutate(text = ifelse(is.na(national_scientific_name),
+                           national_engl_name,
+                           paste0(national_engl_name, " (<i>", national_scientific_name, "</i>)"))) %>%
+      arrange(text) %>%
+      pull(text) %>%
+      {paste0("<p>The following taxa are being proposed as global KBA triggers: ", paste0(., collapse="; "), ". Once accepted, this site will become a global KBA. In the meantime, it is a national KBA.</p>")}
+      
                 # French
     extraDisclaimer_FR <- globalNotAccepted_triggers %>%
-      mutate(text = ifelse(!is.na(national_fr_name),
-                           paste0(national_fr_name, " (<i>", national_scientific_name, "</i>)"),
-                           paste0("<i>", national_scientific_name, "</i>"))) %>%
+      mutate(text = ifelse(is.na(national_fr_name),
+                           paste0("<i>", national_scientific_name, "</i>"),
+                           ifelse(is.na(national_scientific_name),
+                                  national_fr_name,
+                                  paste0(national_fr_name, " (<i>", national_scientific_name, "</i>)")))) %>%
       arrange(text) %>%
-      mutate(extradisclaimer_fr = paste0("<p>Les taxons suivants ont été proposés comme taxons se qualifiant au niveau mondial : ",
-                                         paste0(text, collapse="; "),
-                                         ". Une fois cette évaluation validée, le site deviendra une KBA mondiale. En attendant, il s'agit d'une KBA nationale.</p>")) %>%
-      ungroup() %>%
-      pull(extradisclaimer_fr)
-    
+      pull(text) %>%
+      {paste0("<p>Les taxons suivants ont été proposés comme taxons se qualifiant au niveau mondial : ", paste0(., collapse="; "), ". Une fois cette évaluation validée, le site deviendra une KBA mondiale. En attendant, il s'agit d'une KBA nationale.</p>")}
+  
           # Add to site disclaimer
     DBS_KBASite %<>%
       mutate(disclaimer_en = paste0(extraDisclaimer_EN, disclaimer_en),
