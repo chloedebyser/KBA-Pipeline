@@ -7,14 +7,12 @@
 # Instead, please edit the code locally and push your edits to the GitHub repository.             #
 ###################################################################################################
 
-#### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior)
-#### TO DO: Don't send global sites to Registry if they don't have a WDKBAID
-#### TO DO: Find substitutes for everything that is hard coded
-#### TO DO: Populate ContinentalPopulationSize and CitationContinentalPopulation
-#### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.)
-#### TO DO: Implement FootnoteID (right now it is just set to NA)
-#### TO DO: Update email notification code so that it accounts for multiple emails in the proposal development lead field (separated by semi-colons)
-
+#### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior) - Make sure it doesn't get treated as replaced - Chloé
+#### TO DO: Don't send global sites to Registry if they don't have a WDKBAID - Chloé
+#### TO DO: Find substitutes for everything that is hard coded - Chloé
+#### TO DO: Populate ContinentalPopulationSize and CitationContinentalPopulation - Chloé
+#### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.) - Dean
+#### TO DO: Implement FootnoteID (right now it is just set to NA) - Dean
 
 #### Workspace ####
 # Packages
@@ -124,17 +122,17 @@ backupdate <- REG_BackupDate %>% filter(datetime==max(datetime)) %>% pull(dateti
 # Force error if backup has not occured since the last pipeline run
 if(backupdate<lastPipelineRun){stop("Last backup happened before the most recent pipeline run. Please check if backups are still working.")}
 
-#### Temporary site filters/data edits ####
-
-# TEMP: PRETENT MARBLE RIDGE ALVAR IS ACCEPTED - TO DO: Remove once done with testing
-DB_KBASite %<>%
-  mutate(sitestatus = replace(sitestatus, nationalname == "Marble Ridge Alvar", 6),
-         confirmdate = replace(confirmdate, nationalname == "Marble Ridge Alvar", Sys.time() %>% with_tz(., tzone="GMT")),
-         n_ecosystematsite = replace(n_ecosystematsite, nationalname == "Marble Ridge Alvar", 1),
-         n_biodivelementdistribution = replace(n_biodivelementdistribution, nationalname == "Marble Ridge Alvar", 1))
-
-DB_Ecosystem %<>%
-  mutate(kba_group = replace(kba_group, ecosystemid == DB_BIOTICS_ECOSYSTEM[which(DB_BIOTICS_ECOSYSTEM$cnvc_english_name == "Manitoba Alvar"), "ecosystemid"], "Grassland & Shrubland"))
+# #### Temporary site filters/data edits ####
+# # TEMP: PRETENT MARBLE RIDGE ALVAR IS ACCEPTED - TO DO: Remove once done with testing
+# DB_KBASite %<>%
+#   mutate(sitestatus = replace(sitestatus, nationalname == "Marble Ridge Alvar", 6),
+#          sitecode = "MB999",
+#          confirmdate = replace(confirmdate, nationalname == "Marble Ridge Alvar", Sys.time() %>% with_tz(., tzone="GMT")),
+#          n_ecosystematsite = replace(n_ecosystematsite, nationalname == "Marble Ridge Alvar", 1),
+#          n_biodivelementdistribution = replace(n_biodivelementdistribution, nationalname == "Marble Ridge Alvar", 1))
+# 
+# DB_Ecosystem %<>%
+#   mutate(kba_group = replace(kba_group, ecosystemid == DB_BIOTICS_ECOSYSTEM[which(DB_BIOTICS_ECOSYSTEM$cnvc_english_name == "Manitoba Alvar"), "ecosystemid"], "Grassland & Shrubland"))
 
 #### SPECIES - Update all species ####
 # Read in Bird-specific data
@@ -186,8 +184,8 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          Population_EN = NA,
          Population_FR = NA,
          IUCNLink = ifelse(!is.na(IUCNTaxonID), paste0("https://www.iucnredlist.org/species/", IUCNTaxonID,"/", IUCNAssessmentID), NA),
-         ContinentalPopulationSize = NA, # TO DO: populate
-         CitationContinentalPopulation = NA, # TO DO: populate
+         ContinentalPopulationSize = NA, # TO DO: populate (if D1 national for Birds, reference population = continental population) AND don't populate national
+         CitationContinentalPopulation = NA, # TO DO: populate (if D1 national for Birds, reference population = continental population) AND don't populate national
          Sensitive = 0,
          Endemism = ifelse(endemism == "Yes (the element is endemic)",
                            "Y",
@@ -1431,7 +1429,7 @@ if(nrow(siteNotifications) > 0){
   
   # Vector of emails to notify
   notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org") %>%
-    c(., siteNotifications$leademail) %>%
+    c(., trimws(strsplit(siteNotifications$leademail, ";")[[1]])) %>%
     unique()
   
   # Send email if on production
