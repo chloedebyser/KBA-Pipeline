@@ -9,7 +9,6 @@
 
 #### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior) - Make sure it doesn't get treated as replaced + handle TO DOs in code itself - Chloé
 #### TO DO: Don't send global sites to Registry if they don't have a WDKBAID - Chloé
-#### TO DO: Populate Group for ecosystems - Chloé
 #### TO DO: Handle other TO DOs in the code itself - Chloé
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.) - Dean
 #### TO DO: Implement FootnoteID (right now it is just set to NA) - Dean
@@ -326,6 +325,7 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
          Division_EN = division_name,
          Division_FR = division_name_fr,
          Macrogroup_EN = cnvc_mg_englishname,
+         Group_EN = cnvc_group_englishname,
          NSGRank = g_rank,
          NSGRankReviewDate = g_rank_review_date,
          NSNRank = n_rank,
@@ -337,8 +337,8 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
          IUCNStatusCriteria = iucn_criteria) %>%
   mutate(EcosystemType_FR = ifelse(is.na(cnvc_french_name), ivc_name_fr, cnvc_french_name),
          Macrogroup_FR = ifelse(is.na(cnvc_mg_frenchname), ivc_mg_name_fr, cnvc_mg_frenchname),
-         Group = NA, # TO DO: Populate
-         IUCNLink = ifelse(ecosystemid == 113, "https://assessments.iucnrle.org/assessments/12", NA)) %>% # TO DO: Populate
+         Group_FR = ifelse(is.na(cnvc_group_frenchname), ivc_group_name_fr, cnvc_group_frenchname),
+         IUCNLink = ifelse(ecosystemid == 113, "https://assessments.iucnrle.org/assessments/12", NA)) %>%
   left_join(., REG_IUCNStatus, by=c("iucn_cd" = "Nomenclature")) %>%
   left_join(., REG_Ecosystem_Class[,c("EcosystemClassID", "ClassName_EN")], by=c("Subclass_EN" = "ClassName_EN"))
 
