@@ -9,7 +9,7 @@
 
 #### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior) - Make sure it doesn't get treated as replaced + handle TO DOs in code itself - Chloé
 #### TO DO: Don't send global sites to Registry if they don't have a WDKBAID - Chloé
-#### TO DO: Populate Group and IUCNLink for ecosystems - Chloé
+#### TO DO: Populate Group for ecosystems - Chloé
 #### TO DO: Handle other TO DOs in the code itself - Chloé
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.) - Dean
 #### TO DO: Implement FootnoteID (right now it is just set to NA) - Dean
@@ -338,7 +338,7 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
   mutate(EcosystemType_FR = ifelse(is.na(cnvc_french_name), ivc_name_fr, cnvc_french_name),
          Macrogroup_FR = ifelse(is.na(cnvc_mg_frenchname), ivc_mg_name_fr, cnvc_mg_frenchname),
          Group = NA, # TO DO: Populate
-         IUCNLink = NA) %>% # TO DO: Populate
+         IUCNLink = ifelse(ecosystemid == 113, "https://assessments.iucnrle.org/assessments/12", NA)) %>% # TO DO: Populate
   left_join(., REG_IUCNStatus, by=c("iucn_cd" = "Nomenclature")) %>%
   left_join(., REG_Ecosystem_Class[,c("EcosystemClassID", "ClassName_EN")], by=c("Subclass_EN" = "ClassName_EN"))
 
@@ -1462,34 +1462,40 @@ if(nrow(siteNotifications) > 0){
   
   # Send email if on production
   if(docker_env=="Production"){
-  pipeline.email(to = notificationEmails,
-                 password = mailtrap_pass,
-                 subject = "KBA Registry Update Notification",
-                 message = notificationMessage)
-  # Prepare shapefile for Sandra
-  shapefilePath <- create.shapefile(registryDB,path="Shapefile",sitecodes=siteNotifications$sitecode)
-  #Send to Sandra
-  pipeline.email(to = "smarquez@birdscanada.org",
-                 password = mailtrap_pass,
-                 subject = "KBA Registry Update Notification",
-                 message = notificationMessage,
-                 attachment = shapefilePath)
-  } else {
+      
+    pipeline.email(to = notificationEmails,
+                   password = mailtrap_pass,
+                   subject = "KBA Registry Update Notification",
+                   message = notificationMessage)
+      
+    # Prepare shapefile for Sandra
+    shapefilePath <- create.shapefile(registryDB,path="Shapefile",sitecodes=siteNotifications$sitecode)
+    
+    # Send to Sandra
+    pipeline.email(to = "smarquez@birdscanada.org",
+                   password = mailtrap_pass,
+                   subject = "KBA Registry Update Notification",
+                   message = notificationMessage,
+                   attachment = shapefilePath)
+    
+  }else{
+    
     pipeline.email(to = c("devans@birdscanada.org","cdebyser@wcs.org"),
                    password = mailtrap_pass,
                    subject = "KBA Registry Update Notification",
                    message = notificationMessage)
     
   }
-}
- else {
+}else{
+  
   pipeline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
                  subject = "KBA Registry Notification",
                  password = mailtrap_pass,
                  message = "KBA Pipeline run completed with no errors!")
  }
 }
-# close database connection if it exists
+
+# Close database connection, if it exists
 if(exists("registryDB")){
-registryDB %>% dbDisconnect()
+  registryDB %>% dbDisconnect()
 }
