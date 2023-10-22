@@ -1249,7 +1249,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     mutate(AssessmentSubcriterionID=if(n()>0) 1:n() else 0) 
   
   New_KBA_SpeciesAssessments <- New_SpeciesAssessment %>%
-    select(all_of(names(REG_KBA_SpeciesAssessments))) %>% distinct()
+    select(all_of(names(REG_KBA_SpeciesAssessments))) %>%
+    mutate(FootnoteID=NA) %>% distinct()
   
         # Check for missing AssessmentIDs to remove those first
   missingIDs <- REG_KBA_SpeciesAssessments %>% 
@@ -1306,7 +1307,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     mutate(EcoAssessmentSubcriterionID=if(n()>0) 1:n() else 0) 
   
   New_KBA_EcosystemAssessments <- New_EcosystemAssessment %>%
-    select(all_of(names(REG_KBA_EcosystemAssessments))) %>% distinct()
+    select(all_of(names(REG_KBA_EcosystemAssessments)))%>%
+    mutate(FootnoteID=NA) %>% distinct()
   
         # Check for missing AssessmentIDs to remove those first
   missingIDs <- REG_KBA_EcosystemAssessments %>% 
@@ -1357,7 +1359,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   })
   
   ### Remove site-specific data ###
-  rm(list=setdiff(ls(), c(ls(pattern = "DB_"), ls(pattern = "REG_"), ls(pattern = "REGA_"), "id", "lastPipelineRun", "relevantReferenceEstimates_spp", "relevantReferenceEstimates_eco", "sensitiveSpecies", "maxSensitiveSpeciesID", "siteNotifications", "siteErrors", "dataTables", "registryDB", "crosswalk_SpeciesID", "crosswalk_EcosystemID", "read_KBACanadaProposalForm", "read_KBAEBARDatabase", "filter_KBAEBARDatabase", "check_KBADataValidity", "trim_KBAEBARDataset", "update_KBAEBARDataset", "primaryKey_KBAEBARDataset", "mailtrap_pass", "pipeline.email", "cleanup.internalboundary", "cleanup.footnote", "cleanup.ecosystems", "cleanup.species", "delete.sites", "getSpeciesLinks", "url_exists", "update.table", "delete.id", "updatetextSQL", "%!in%","create.shapefile", "geoserver_pass","docker_env","transaction")))
+  rm(list=setdiff(ls(), c(ls(pattern = "DB_"), ls(pattern = "REG_"), ls(pattern = "REGA_"), "id", "lastPipelineRun", "relevantReferenceEstimates_spp", "relevantReferenceEstimates_eco", "sensitiveSpecies", "maxSensitiveSpeciesID", "siteNotifications", "siteErrors", "dataTables", "registryDB", "crosswalk_SpeciesID", "crosswalk_EcosystemID", "read_KBACanadaProposalForm", "read_KBAEBARDatabase", "filter_KBAEBARDatabase", "check_KBADataValidity", "trim_KBAEBARDataset", "update_KBAEBARDataset", "primaryKey_KBAEBARDataset", "mailtrap_pass", "pipeline.email", "cleanup.internalboundary", "cleanup.footnote", "cleanup.ecosystems", "cleanup.species", "delete.sites", "getSpeciesLinks", "url_exists", "update.table", "delete.id", "updatetextSQL", "%!in%","create.shapefile", "geoserver_pass","docker_env","transaction","generate.footnotes")))
 }
 rm(id)
 
@@ -1387,9 +1389,16 @@ tryCatch({
   # Delete sites
   registryDB %>% delete.sites(deletesitecodes)
   
+  # Generate footnotes
+  registryDB %>% generate.footnotes(crosswalk_SpeciesID,
+                                    DB_BIOTICS_ELEMENT_NATIONAL,
+                                    DB_Species,
+                                    crosswalk_EcosystemID,
+                                    DB_BIOTICS_ECOSYSTEM,
+                                    DB_Ecosystem)
+  
   # Clean up other records 
   registryDB %>% cleanup.internalboundary()
-  registryDB %>% cleanup.footnote()
   registryDB %>% cleanup.species()
   registryDB %>% cleanup.ecosystems()
   
@@ -1456,7 +1465,7 @@ if(nrow(siteNotifications) > 0){
   }
   
   # Vector of emails to notify
-  notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org") %>%
+  notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org","acouturier@bsc-eoc.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org") %>%
     c(., trimws(strsplit(siteNotifications$leademail, ";")[[1]])) %>%
     unique()
   

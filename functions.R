@@ -440,3 +440,123 @@ create.shapefile <- function(registryDB,path="Shapefile",sitecodes=c()){
   zip::zip(file.path(path,paste0("KBAs_",Sys.Date(),".zip")),list.files("Shapefile",full.names = T),mode = "cherry-pick")
   return(file.path(path,paste0("KBAs_",Sys.Date(),".zip")))
 }
+
+generate.footnotes <- function(.db,crosswalk_SpeciesID,
+                               DB_BIOTICS_ELEMENT_NATIONAL,
+                               DB_Species,
+                               crosswalk_EcosystemID,
+                               DB_BIOTICS_ECOSYSTEM,
+                               DB_Ecosystem){
+  SpeciesAssessments <- .db %>% tbl("KBA_SpeciesAssessments") %>% collect() %>% arrange(SpeciesAssessmentsID)
+  SpeciesAssessmentsSub <- .db %>% tbl("SpeciesAssessment_Subcriterion") %>% collect() %>% arrange(SpeciesAssessmentsID)
+  Subcriterion <- .db %>% tbl("Subcriterion") %>% collect() %>% arrange(SubcriterionID)
+  EcosystemAssessments <- .db %>% tbl("KBA_EcosystemAssessments") %>% collect() %>% arrange(EcosystemAssessmentsID)
+  Species <- .db %>% tbl("Species") %>% collect()
+  Ecosystem <- .db %>% tbl("Ecosystem") %>% collect()
+  EcosystemAssessmentsSub <- .db %>% tbl("EcosystemAssessment_Subcriterion") %>% collect() %>% arrange(EcosystemAssessmentsID)
+  SpeciesAssessmentsSub %<>% left_join(Subcriterion,by="SubcriterionID")
+  EcosystemAssessmentsSub %<>% left_join(Subcriterion,by="SubcriterionID")
+  Footnote <- data.frame(FootnoteID=integer(),
+                         Footnote_EN=character(),
+                         Footnote_FR=character())
+  for (i in 1:nrow(SpeciesAssessments)) {
+    regSpeciesID <- SpeciesAssessments %>% slice(i) %>% pull(SpeciesID)
+    if(regSpeciesID %in% crosswalk_SpeciesID$REG_SpeciesID){
+      TaxonomicLevel <- Species %>% filter(SpeciesID==regSpeciesID) %>% pull(TaxonomicLevel)
+      if(TaxonomicLevel=="None"){
+        Footnote_EN <- "This was a recognized taxon at the time of KBA assessment, however it is no longer considered a valid taxonomic concept."
+        Footnote_FR <- "Ce taxon était reconnu en date de l’évaluation de la KBA, cependant ce n’est plus un concept taxonomique valide."
+        
+      } else {
+        DB_SpeciesID <- crosswalk_SpeciesID %>% filter(REG_SpeciesID==regSpeciesID)  %>% pull(DB_SpeciesID)
+        OriginalScientificName <- SpeciesAssessments %>% slice(i) %>% pull(Original_ScientificName)
+        OriginalName_EN <- SpeciesAssessments %>% slice(i) %>% pull(Original_CommonNameEN)
+        OriginalName_FR <- SpeciesAssessments %>% slice(i) %>% pull(Original_CommonNameFR)
+        ScientificName <- DB_BIOTICS_ELEMENT_NATIONAL %>% filter(speciesid==DB_SpeciesID) %>% pull(national_scientific_name)   
+        Name_EN <-   DB_BIOTICS_ELEMENT_NATIONAL %>% filter(speciesid==DB_SpeciesID) %>% pull(national_engl_name)
+        Name_FR <-   DB_BIOTICS_ELEMENT_NATIONAL %>% filter(speciesid==DB_SpeciesID) %>% pull(national_fr_name)
+        speciesstatus <- SpeciesAssessments %>% slice(i) %>% pull(SpeciesStatus)
+        speciescriteria <- SpeciesAssessmentsSub %>% 
+          filter(SpeciesAssessmentsID==SpeciesAssessments$SpeciesAssessmentsID[i]) %>%
+          pull(Subcriterion) %>% substr(.,1,1)
+        Footnote_EN <- c()
+        Footnote_FR <- c()
+        if(!is.na(speciesstatus) & "A" %in% speciescriteria){
+          assessmentagency <- str_split_1(speciesstatus," ")[2]
+          status <- str_split_1(speciesstatus," ")[1]
+          if(assessmentagency=="(COSEWIC)"){
+            cosewicstatus <- DB_BIOTICS_ELEMENT_NATIONAL %>% filter(speciesid==DB_SpeciesID) %>% pull(cosewic_status)
+            if(is.na(cosewicstatus)){cosewicstatus<-"NA"}
+            if(cosewicstatus!=status){
+              Footnote_EN <- c(Footnote_EN,paste0("At the time of KBA assessment, this taxon was ranked as ",
+                                                  speciesstatus,". Since then, it has been reassessed as ",
+                                                  cosewicstatus,"."))
+              Footnote_FR <- c(Footnote_FR,paste0("Ce taxon avait un statut de ",
+                                                  speciesstatus,
+                                                  " en date d’évaluation de la KBA. Son statut est dorénavant ",
+                                                  cosewicstatus,"."))
+              
+            }
+          }  
+          if(assessmentagency=="(IUCN)"){
+            iucnstatus <- DB_Species %>% filter(speciesid==DB_SpeciesID) %>% pull(iucn_cd)
+            if(is.na(iucnstatus)){iucnstatus<-"NE"}
+            if(iucnstatus!=status){
+              Footnote_EN <- c(Footnote_EN,paste0("At the time of KBA assessment, this taxon was ranked as ",
+                                                  speciesstatus,". Since then, it has been reassessed as ",
+                                                  cosewicstatus,"."))
+              Footnote_FR <- c(Footnote_FR,paste0("Ce taxon avait un statut de ",
+                                                  speciesstatus,
+                                                  " en date d’évaluation de la KBA. Son statut est dorénavant ",
+                                                  iucnstatus,"."))
+              
+            }
+          }
+          if(assessmentagency=="(NatureServe)"){
+            if(str_sub(status,1,1) %in% c("G","T")){
+              nsrank <- DB_Species %>% filter(speciesid==DB_SpeciesID) %>% pull(precautionary_g_rank)
+              if(is.na(nsrank)){nsrank<-"GNR"}
+            } else {
+              nsrank <- DB_Species %>% filter(speciesid==DB_SpeciesID) %>% pull(precautionary_n_rank)
+              if(is.na(nsrank)){nsrank<-"NNR"}
+            }
+            
+            if(nsrank!=status){
+              Footnote_EN <- c(Footnote_EN,paste0("At the time of KBA assessment, this taxon was ranked as ",
+                                                  speciesstatus,". Since then, it has been reassessed as ",
+                                                  nsrank,"."))
+              Footnote_FR <- c(Footnote_FR,paste0("Ce taxon avait un statut de ",
+                                                  speciesstatus,
+                                                  " en date d’évaluation de la KBA. Son statut est dorénavant ",
+                                                  nsrank,"."))
+              
+            }
+          }  
+          
+        }
+        
+        if(any(!identical(OriginalScientificName,ScientificName),!identical(OriginalName_EN,Name_EN))){
+          Footnote_EN <- c(Footnote_EN,paste0("This taxon used to be known as ",OriginalName_EN," (<i>",OriginalScientificName,"</i>) at the time of KBA assessment. It has since been renamed to ",Name_EN," (<i>",ScientificName,"</i>)."))
+        }
+        if(any(!identical(OriginalScientificName,ScientificName),!identical(OriginalName_FR,Name_FR))){
+          Footnote_FR <- c(Footnote_FR,paste0("Ce taxon était anciennement connu sous le nom de ",OriginalName_FR," (<i>",OriginalScientificName,"</i>). Il est dorénavant connu sous le nom de ",Name_FR," (<i>",ScientificName,"</i>)."))
+        }
+      }
+      
+      if(any(length(Footnote_EN)>0,length(Footnote_FR)>0)){
+        footnoteid <- if(nrow(Footnote)>0){max(Footnote$FootnoteID)+1} else{1}
+        Footnote %<>% add_row(FootnoteID=footnoteid,
+                              Footnote_EN=paste0(Footnote_EN,collapse = " "),
+                              Footnote_FR=paste0(Footnote_FR,collapse = " "))
+        SpeciesAssessments$FootnoteID[i] <- footnoteid
+      }
+    }
+  }
+  New_SpeciesAssessments <- SpeciesAssessments %>% filter(!is.na(FootnoteID))
+  SpeciesAssessments %<>% mutate(FootnoteID=NA)
+  OldFootnote <- .db %>% tbl("Footnote") %>% collect() %>% arrange(FootnoteID)
+  .db  %>% update.table("Footnote","FootnoteID",Footnote,OldFootnote,full = T)
+  .db  %>% update.table("KBA_SpeciesAssessments","SpeciesAssessmentsID",New_SpeciesAssessments, SpeciesAssessments, full = F)
+  
+  
+}
