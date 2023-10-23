@@ -193,9 +193,9 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          Population_FR = NA,
          IUCNLink = ifelse(!is.na(IUCNTaxonID), paste0("https://www.iucnredlist.org/species/", IUCNTaxonID,"/", IUCNAssessmentID), NA),
          Sensitive = 0,
-         TaxonomicLevel = ifelse((bcd_style_n_rank == "NSYN") | (inactive_ind == "Y"),
-                                 "None",
-                                 ca_nname_level),
+         TaxonomicLevel = case_when(bcd_style_n_rank == "NSYN" ~ "None",
+                                    inactive_ind == "Y" ~ "None",
+                                    .default = as.character(ca_nname_level)),
          Endemism = ifelse(endemism == "Yes (the element is endemic)",
                            "Y",
                            ifelse(endemism == "No (the element is not endemic)",
@@ -1115,32 +1115,36 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   ### Update species name in website text
   for(spp in REGS_KBA_SpeciesAssessments$SpeciesID){
     
-    for(nameType in c("ScientificName", "CommonNameEN", "CommonNameFR")){
-      
-      # Get original name
-      originalName <- REGS_KBA_SpeciesAssessments %>%
-        filter(SpeciesID == spp) %>%
-        pull(paste0("Original_", nameType))
-      
-      # Get new name
-      newName <- REGS_Species %>%
-        filter(SpeciesID == spp)
-      
-      if(nameType == "ScientificName"){
-        newName %<>% pull(ScientificName)
+    if(spp < 1000000){
+    
+      for(nameType in c("ScientificName", "CommonNameEN", "CommonNameFR")){
         
-      }else if(nameType == "CommonNameEN"){
-        newName %<>% pull(CommonName_EN)
+        # Get original name
+        originalName <- REGS_KBA_SpeciesAssessments %>%
+          filter(SpeciesID == spp) %>%
+          pull(paste0("Original_", nameType)) %>%
+          unique()
         
-      }else{
-        newName %<>% pull(CommonName_FR)
-      }
+        # Get new name
+        newName <- REGS_Species %>%
+          filter(SpeciesID == spp)
         
-      # If different, replace original name with new name in relevant text fields
-      if(!originalName == newName){
-        
-        for(field in c("SiteDescription_EN", "SiteDescription_FR", "BiodiversitySummary_EN", "BiodiversitySummary_FR", "Conservation_EN", "Conservation_FR", "CustomaryJurisdiction_EN", "CustomaryJurisdiction_FR", "Disclaimer_EN", "Disclaimer_FR", "SiteHistory_EN", "SiteHistory_FR", "ObsoleteReason_EN", "ObsoleteReason_FR")){
-          REGS_KBA_Website[1, field] <- gsub(originalName, newName, REGS_KBA_Website[1, field], fixed=T)
+        if(nameType == "ScientificName"){
+          newName %<>% pull(ScientificName)
+          
+        }else if(nameType == "CommonNameEN"){
+          newName %<>% pull(CommonName_EN)
+          
+        }else{
+          newName %<>% pull(CommonName_FR)
+        }
+          
+        # If different, replace original name with new name in relevant text fields
+        if(!originalName == newName){
+          
+          for(field in c("SiteDescription_EN", "SiteDescription_FR", "BiodiversitySummary_EN", "BiodiversitySummary_FR", "Conservation_EN", "Conservation_FR", "CustomaryJurisdiction_EN", "CustomaryJurisdiction_FR", "Disclaimer_EN", "Disclaimer_FR", "SiteHistory_EN", "SiteHistory_FR", "ObsoleteReason_EN", "ObsoleteReason_FR")){
+            REGS_KBA_Website[1, field] <- gsub(originalName, newName, REGS_KBA_Website[1, field], fixed=T)
+          }
         }
       }
     }
