@@ -7,9 +7,6 @@
 # Instead, please edit the code locally and push your edits to the GitHub repository.             #
 ###################################################################################################
 
-#### TO DO: Add handling of sites with multiple versions (e.g. Canadian lake superior) - Make sure it doesn't get treated as replaced + handle TO DOs in code itself - Chloé
-#### TO DO: Don't send global sites to Registry if they don't have a WDKBAID - Chloé
-#### TO DO: Handle other TO DOs in the code itself - Chloé
 #### TO DO: Add footnotes for species and ecosystems, where applicable (e.g. change in classification of species/ecosystem, change in status, etc.) - Dean
 #### TO DO: Implement FootnoteID (right now it is just set to NA) - Dean
 
@@ -123,8 +120,20 @@ if(backupdate < lastPipelineRun){
   stop("There has not been a backup since the last pipeline run. Please check if backups are still working.")
 }
 
-# #### Temporary site filters/data edits ####
-# # TEMP: PRETENT MARBLE RIDGE ALVAR IS ACCEPTED - TO DO: Remove once done with testing
+#### Temporary site filters/data edits - TO DO: Remove once done with testing ####
+# TEMP: PRETEND THAT LONG POINT V2 IS ACCEPTED
+DB_KBASite %<>%
+  mutate(sitestatus = replace(sitestatus, nationalname == "Long Point Peninsula and Marshes" & version == 2, 6),
+         confirmdate = replace(confirmdate, nationalname == "Long Point Peninsula and Marshes" & version == 2, Sys.time() %>% with_tz(., tzone="GMT")),
+         n_speciesatsite = replace(n_speciesatsite, nationalname == "Long Point Peninsula and Marshes" & version == 2, 30),
+         n_kbainputpolygon = replace(n_kbainputpolygon, nationalname == "Long Point Peninsula and Marshes" & version == 2, 3),
+         n_kbacustompolygon = replace(n_kbacustompolygon, nationalname == "Long Point Peninsula and Marshes" & version == 2, 4))
+
+# TEMP: PRETEND THAT LONG POINT V1 IS REPLACED
+DB_KBASite %<>%
+  mutate(sitestatus = replace(sitestatus, nationalname == "Long Point Peninsula and Marshes" & version == 1, 9))
+
+# # TEMP: PRETENT MARBLE RIDGE ALVAR IS ACCEPTED
 # DB_KBASite %<>%
 #   mutate(sitestatus = replace(sitestatus, nationalname == "Marble Ridge Alvar", 6),
 #          sitecode = "MB999",
@@ -153,7 +162,6 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          InformalTaxonomicGroup = kba_group,
          CommonName_EN = national_engl_name,
          CommonName_FR = national_fr_name,
-         TaxonomicLevel = ca_nname_level,
          Kingdom = kingdom,
          Phylum = phylum,
          Class = class,
@@ -186,6 +194,9 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          Population_FR = NA,
          IUCNLink = ifelse(!is.na(IUCNTaxonID), paste0("https://www.iucnredlist.org/species/", IUCNTaxonID,"/", IUCNAssessmentID), NA),
          Sensitive = 0,
+         TaxonomicLevel = ifelse((bcd_style_n_rank == "NSYN") | (inactive_ind == "Y"),
+                                 "None",
+                                 ca_nname_level),
          Endemism = ifelse(endemism == "Yes (the element is endemic)",
                            "Y",
                            ifelse(endemism == "No (the element is not endemic)",
@@ -496,12 +507,42 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   accepted <- DB_KBASite %>%
     filter(kbasiteid == id) %>%
     pull(sitestatus) %>%
-    {ifelse(is.na(.), F, ifelse(. >= 6, T, F))}
+    {ifelse(is.na(.), F, ifelse(. %in% 6:8, T, F))}
   
-  if(!accepted){next}
+  obsolete <- DB_KBASite %>%
+    filter(kbasiteid == id) %>%
+    pull(sitestatus) %>%
+    {ifelse(is.na(.), F, ifelse(. %in% 9:10, T, F))}
   
-  # If accepted, then filter KBA-EBAR data
+  if(!(accepted | obsolete)){next}
+  
+  # Filter KBA-EBAR data
   filter_KBAEBARDatabase(KBASiteIDs = id, RMUnfilteredDatasets = F)
+  
+  # Do not process site if there are multiple accepted versions of the same site
+  acceptedVersions <- DB_KBASite %>%
+    filter(sitecode == DBS_KBASite$sitecode, sitestatus %in% 6:8)
+  
+  if(nrow(acceptedVersions) > 1){
+    stop("There are multiple accepted versions of this site.")
+  }
+  
+  # If obsolete, check whether the site is a superseded version
+  if(obsolete){
+    
+    # If the site is a superseded version, do not process
+    if((DBS_KBASite$sitestatus == 9) && (nrow(acceptedVersions) > 0) && (acceptedVersions$version > DBS_KBASite$version)){
+      next
+    
+    # Otherwise, get obsolete reason
+    }else{
+      stop("Site is obsolete, but ObsoleteReason text has not been specified.")
+    }
+    
+  }else{
+    ObsoleteReason_EN <- NA
+    ObsoleteReason_FR <- NA
+  }
   
   # Check for unconfirmed edits
         # Compute overall_last_edited_date (date of last edit of the site or any of its related records)
@@ -637,16 +678,6 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     DBS_KBASite %<>%
       mutate(disclaimer_en = paste0(extraDisclaimer_EN, disclaimer_en),
              disclaimer_fr = paste0(extraDisclaimer_FR, disclaimer_fr))
-  }
-  
-  ### Compute reason for obsolete, if applicable ###
-  if(DBS_KBASite$sitestatus %in% c(9, 10)){
-    
-    stop("Site is obsolete, but ObsoleteReason text has not been specified.")
-    
-  }else{
-    ObsoleteReason_EN <- NA
-    ObsoleteReason_FR <- NA
   }
   
   ### Handle sensitive species ###
@@ -1082,21 +1113,11 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     select(all_of(colnames(REG_InternalBoundary))) %>% 
     st_cast("MULTIPOLYGON")
   
-  ### Check whether this is a new site or version
-  if(!REG_siteID %in% REG_KBA_Site$SiteID){
-    siteNotification <- "New site"
-    
-  }else if(!REGS_KBA_Site$Version == REG_KBA_Site$Version[which(REG_KBA_Site$SiteID == REG_siteID)]){ # TO DO: Check that this works correctly with Canadian Lake Superior
-    siteNotification <- "New version"
-    
-  }else{
-    siteNotification <- NA
-  }
-  
   ### Add/update information for the site in the Registry Database ###
   # Start transaction
   registryDB %>% dbBegin()
   transaction <<- TRUE
+  
   # KBA_Site
   registryDB %>% update.table("KBA_Site","SiteID",REGS_KBA_Site,REG_KBA_Site)
   
@@ -1250,7 +1271,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   New_KBA_SpeciesAssessments <- New_SpeciesAssessment %>%
     select(all_of(names(REG_KBA_SpeciesAssessments))) %>%
-    mutate(FootnoteID=NA) %>% distinct()
+    mutate(FootnoteID=NA) %>%
+    distinct()
   
         # Check for missing AssessmentIDs to remove those first
   missingIDs <- REG_KBA_SpeciesAssessments %>% 
@@ -1308,7 +1330,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   New_KBA_EcosystemAssessments <- New_EcosystemAssessment %>%
     select(all_of(names(REG_KBA_EcosystemAssessments)))%>%
-    mutate(FootnoteID=NA) %>% distinct()
+    mutate(FootnoteID=NA) %>%
+    distinct()
   
         # Check for missing AssessmentIDs to remove those first
   missingIDs <- REG_KBA_EcosystemAssessments %>% 
@@ -1329,15 +1352,26 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # End transaction, if no errors
   registryDB %>% dbCommit()
   transaction <<- FALSE
-  ### If new site or version, add to notification list
-  if(!is.na(siteNotification)){
-    siteNotifications %<>%
-      add_row(sitecode = DBS_KBASite$sitecode,
-              sitename = DBS_KBASite$nationalname,
-              jurisdiction = DBS_KBASite$jurisdiction_en,
-              type = siteNotification,
-              leademail = DBS_KBASite$proposallead_email)
+  
+  ### Prepare site notification
+        # Get notification type
+  if(!REG_siteID %in% REG_KBA_Site$SiteID){
+    siteNotification <- "New site"
+    
+  }else if(!REGS_KBA_Site$Version == REG_KBA_Site$Version[which(REG_KBA_Site$SiteID == REG_siteID)]){
+    siteNotification <- "New version"
+    
+  }else{
+    siteNotification <- "Site edit"
   }
+  
+        # Add to siteNotifications
+  siteNotifications %<>%
+    add_row(sitecode = DBS_KBASite$sitecode,
+            sitename = DBS_KBASite$nationalname,
+            jurisdiction = DBS_KBASite$jurisdiction_en,
+            type = siteNotification,
+            leademail = DBS_KBASite$proposallead_email)
   
   ### Print site name ###
   print(paste0(DBS_KBASite$nationalname," (",DBS_KBASite$sitecode,")"))
@@ -1349,6 +1383,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
       transaction <- FALSE
     }
     message(paste(DBS_KBASite$nationalname, "KBA not processed."))
+    
     # Store error info
     siteErrors <<- siteErrors %>% 
       add_row(site=DBS_KBASite$nationalname,
@@ -1364,11 +1399,12 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
 rm(id)
 
 #### DELETIONS - Delete sites, species, and ecosystems ####
-# Sites to retain - TO DO: Update once we've decided how to handle version
+# Sites to retain
 KBASite_retain <- DB_KBASite %>%
   st_drop_geometry() %>%
   filter(sitestatus >= 6) %>%
-  select(sitecode, version)
+  pull(sitecode) %>%
+  unique()
 
 cleanupError <- c()
 
@@ -1440,61 +1476,101 @@ if(docker_env=="Production"){
 }
 
 # Send completion email
+      # Separate new sites/versions from site edits
+siteNotificationsNew <- siteNotifications %>%
+  filter(!type == "Site edit")
+
+siteNotificationsEdit <- siteNotifications %>%
+  filter(type == "Site edit")
+  
+      # Notifications for changes
 if(nrow(siteNotifications) > 0){
   
-  # Generate text information about every site
-  siteNotifications %<>%
-    arrange(sitename) %>%
-    mutate(text = paste0("&emsp;&bull; ", sitename, " (", jurisdiction, "): https://kbacanada.org/site/?SiteCode=", sitecode))
+  # If new sites or versions were added
+  if(nrow(siteNotificationNew) > 0){
   
-  # Body of email
-  notificationMessage <- ""
-  
-  if(siteNotifications %>% filter(type == "New site") %>% nrow(.) > 0){
-    notificationMessage <- paste0(notificationMessage,
-                                  "<br><br>The following sites were added to the Registry:<br>",
-                                  paste(siteNotifications %>% filter(type == "New site") %>% pull(text), collapse="<br>"),
-                                  "<br>")
-  }
-  
-  if(siteNotifications %>% filter(type == "New version") %>% nrow(.) > 0){
-    notificationMessage <- paste0(notificationMessage,
-                                  "<br><br>New versions of the following sites were published on the Registry:<br>",
-                                  paste(siteNotifications %>% filter(type == "New version") %>% pull(text), collapse="<br>"),
-                                  "<br>")
-  }
-  
-  # Vector of emails to notify
-  notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org","acouturier@bsc-eoc.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org") %>%
-    c(., trimws(strsplit(siteNotifications$leademail, ";")[[1]])) %>%
-    unique()
-  
-  # Send email if on production
-  if(docker_env=="Production"){
+    # Generate text information about every site
+    siteNotificationsNew %<>%
+      arrange(sitename) %>%
+      mutate(text = paste0("&emsp;&bull; ", sitename, " (", jurisdiction, "): https://kbacanada.org/site/?SiteCode=", sitecode))
+    
+    # Body of email
+    notificationMessage <- ""
+    
+    if(siteNotificationsNew %>% filter(type == "New site") %>% nrow(.) > 0){
+      notificationMessage <- paste0(notificationMessage,
+                                    "<br><br>The following sites were added to the Registry:<br>",
+                                    paste(siteNotificationsNew %>% filter(type == "New site") %>% pull(text), collapse="<br>"),
+                                    "<br>")
+    }
+    
+    if(siteNotificationsNew %>% filter(type == "New version") %>% nrow(.) > 0){
+      notificationMessage <- paste0(notificationMessage,
+                                    "<br><br>New versions of the following sites were published on the Registry:<br>",
+                                    paste(siteNotificationsNew %>% filter(type == "New version") %>% pull(text), collapse="<br>"),
+                                    "<br>")
+    }
+    
+    # Vector of emails to notify
+    notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org","acouturier@bsc-eoc.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org") %>%
+      c(., trimws(strsplit(siteNotificationsNew$leademail, ";")[[1]])) %>%
+      unique()
+    
+    # Send email if on production
+    if(docker_env=="Production"){
+        
+      pipeline.email(to = notificationEmails,
+                     password = mailtrap_pass,
+                     subject = "KBA Registry Update Notification",
+                     message = notificationMessage)
+        
+      # Prepare shapefile for Sandra
+      shapefilePath <- create.shapefile(registryDB,path="Shapefile",sitecodes=siteNotifications$sitecode)
       
+      # Send to Sandra
+      pipeline.email(to = "smarquez@birdscanada.org",
+                     password = mailtrap_pass,
+                     subject = "KBA Registry Update Notification",
+                     message = notificationMessage,
+                     attachment = shapefilePath)
+      
+    }else{
+      
+      pipeline.email(to = c("devans@birdscanada.org","cdebyser@wcs.org"),
+                     password = mailtrap_pass,
+                     subject = "KBA Registry Update Notification",
+                     message = notificationMessage)
+      
+    }
+  }
+  
+  # If existing sites were modified
+  if(nrow(siteNotificationsEdit) > 0){
+    
+    # Generate text information about every site
+    siteNotificationsEdit %<>%
+      arrange(sitename) %>%
+      mutate(text = paste0("&emsp;&bull; ", sitename, " (", jurisdiction, "): https://kbacanada.org/site/?SiteCode=", sitecode))
+    
+    # Body of email
+    notificationMessage <- ""
+    
+    notificationMessage <- paste0(notificationMessage,
+                                  "<br><br>The following sites were modified on the Registry:<br>",
+                                  paste(siteNotificationsEdit %>% filter(type == "New site") %>% pull(text), collapse="<br>"),
+                                  "<br>")
+    
+    # Vector of emails to notify
+    notificationEmails <-  c("devans@birdscanada.org", "cdebyser@wcs.org")
+    
+    # Send email
     pipeline.email(to = notificationEmails,
                    password = mailtrap_pass,
-                   subject = "KBA Registry Update Notification",
+                   subject = "KBA Registry Update Notification - Site edits",
                    message = notificationMessage)
-      
-    # Prepare shapefile for Sandra
-    shapefilePath <- create.shapefile(registryDB,path="Shapefile",sitecodes=siteNotifications$sitecode)
-    
-    # Send to Sandra
-    pipeline.email(to = "smarquez@birdscanada.org",
-                   password = mailtrap_pass,
-                   subject = "KBA Registry Update Notification",
-                   message = notificationMessage,
-                   attachment = shapefilePath)
-    
-  }else{
-    
-    pipeline.email(to = c("devans@birdscanada.org","cdebyser@wcs.org"),
-                   password = mailtrap_pass,
-                   subject = "KBA Registry Update Notification",
-                   message = notificationMessage)
-    
   }
+  
+      # Notification for no changes
 }else{
   
   pipeline.email(to=c("devans@birdscanada.org","cdebyser@wcs.org"),
