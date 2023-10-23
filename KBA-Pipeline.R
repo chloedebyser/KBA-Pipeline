@@ -1443,6 +1443,7 @@ KBASite_retain <- DB_KBASite %>%
 cleanupError <- c()
 
 # Delete old site, species, and ecosystem records
+transaction <- F
 tryCatch({
   
 # Get most recent version of KBA_Site
@@ -1450,11 +1451,12 @@ REG_KBA_Site <- registryDB %>% read_sf("KBA_Site")
   
 # Get site codes to delete
 deletesitecodes <- REG_KBA_Site %>% 
-  filter(SiteCode %!in% KBASite_retain$sitecode) %>% 
+  filter(SiteCode %!in% KBASite_retain) %>% 
   pull(SiteCode)
   
 # Start transaction
 registryDB %>% dbBegin()
+transaction <- T
 
 # Delete sites
 registryDB %>% delete.sites(deletesitecodes)
@@ -1474,11 +1476,14 @@ registryDB %>% generate.footnotes(crosswalk_SpeciesID,
   
 # End transaction, if no errors
 registryDB %>% dbCommit()
+transaction <- F
   
 },error=function(e){
   
   # Rollback errors
-  registryDB %>% dbRollback()
+  if(transaction){
+    registryDB %>% dbRollback()
+  }
   
   # Store error message
   cleanupError <<- c(e[["message"]])
