@@ -1423,7 +1423,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
       add_row(site=DBS_KBASite$nationalname,
               sitecode=DBS_KBASite$sitecode,
               error=e[["message"]])
-    message(e)
+    message(paste0(e[["message"]], "\n"))
 
   })
   
