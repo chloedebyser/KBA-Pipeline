@@ -1530,7 +1530,7 @@ siteNotificationsEdit <- siteNotifications %>%
 if(nrow(siteNotifications) > 0){
   
   # If new sites or versions were added
-  if(nrow(siteNotificationNew) > 0){
+  if(nrow(siteNotificationsNew) > 0){
   
     # Generate text information about every site
     siteNotificationsNew %<>%
