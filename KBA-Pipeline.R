@@ -1113,6 +1113,41 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     select(all_of(colnames(REG_InternalBoundary))) %>% 
     st_cast("MULTIPOLYGON")
   
+  ### Update species name in website text
+  for(spp in REGS_KBA_SpeciesAssessments$SpeciesID){
+    
+    for(nameType in c("ScientificName", "CommonNameEN", "CommonNameFR")){
+      
+      # Get original name
+      originalName <- REGS_KBA_SpeciesAssessments %>%
+        filter(SpeciesID == spp) %>%
+        pull(paste0("Original_", nameType))
+      
+      # Get new name
+      newName <- REGS_Species %>%
+        filter(SpeciesID == spp)
+      
+      if(nameType == "ScientificName"){
+        newName %<>% pull(ScientificName)
+        
+      }else if(nameType == "CommonNameEN"){
+        newName %<>% pull(CommonName_EN)
+        
+      }else{
+        newName %<>% pull(CommonName_FR)
+      }
+        
+      # If different, replace original name with new name in relevant text fields
+      if(!originalName == newName){
+        
+        for(field in c("SiteDescription_EN", "SiteDescription_FR", "BiodiversitySummary_EN", "BiodiversitySummary_FR", "Conservation_EN", "Conservation_FR", "CustomaryJurisdiction_EN", "CustomaryJurisdiction_FR", "Disclaimer_EN", "Disclaimer_FR", "SiteHistory_EN", "SiteHistory_FR", "ObsoleteReason_EN", "ObsoleteReason_FR")){
+          REGS_KBA_Website[1, field] <- gsub(originalName, newName, REGS_KBA_Website[1, field], fixed=T)
+        }
+      }
+    }
+  }
+  rm(spp, nameType, field)
+  
   ### Add/update information for the site in the Registry Database ###
   # Start transaction
   registryDB %>% dbBegin()
