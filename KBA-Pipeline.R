@@ -1600,7 +1600,7 @@ if(nrow(siteNotifications) > 0){
     
     notificationMessage <- paste0(notificationMessage,
                                   "<br><br>The following sites were modified on the Registry:<br>",
-                                  paste(siteNotificationsEdit %>% filter(type == "New site") %>% pull(text), collapse="<br>"),
+                                  paste(siteNotificationsEdit %>% pull(text), collapse="<br>"),
                                   "<br>")
     
     # Vector of emails to notify
