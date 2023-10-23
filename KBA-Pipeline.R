@@ -135,7 +135,7 @@ DB_KBASite %<>%
 # # TEMP: PRETENT MARBLE RIDGE ALVAR IS ACCEPTED
 # DB_KBASite %<>%
 #   mutate(sitestatus = replace(sitestatus, nationalname == "Marble Ridge Alvar", 6),
-#          sitecode = "MB999",
+#          sitecode = replace(sitecode, nationalname == "Marble Ridge Alvar", "MB999"),
 #          confirmdate = replace(confirmdate, nationalname == "Marble Ridge Alvar", Sys.time() %>% with_tz(., tzone="GMT")),
 #          n_ecosystematsite = replace(n_ecosystematsite, nationalname == "Marble Ridge Alvar", 1),
 #          n_biodivelementdistribution = replace(n_biodivelementdistribution, nationalname == "Marble Ridge Alvar", 1))
