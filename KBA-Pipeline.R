@@ -1445,35 +1445,35 @@ cleanupError <- c()
 # Delete old site, species, and ecosystem records
 tryCatch({
   
-  # Get most recent version of KBA_Site
-  REG_KBA_Site <- registryDB %>% read_sf("KBA_Site")
+# Get most recent version of KBA_Site
+REG_KBA_Site <- registryDB %>% read_sf("KBA_Site")
   
-  # Get site codes to delete
-  deletesitecodes <- REG_KBA_Site %>% 
-    filter(SiteCode %!in% KBASite_retain$sitecode) %>% 
-    pull(SiteCode)
+# Get site codes to delete
+deletesitecodes <- REG_KBA_Site %>% 
+  filter(SiteCode %!in% KBASite_retain$sitecode) %>% 
+  pull(SiteCode)
   
-  # Start transaction
-  registryDB %>% dbBegin()
+# Start transaction
+registryDB %>% dbBegin()
+
+# Delete sites
+registryDB %>% delete.sites(deletesitecodes)
+
+# Clean up other records 
+registryDB %>% cleanup.internalboundary()
+registryDB %>% cleanup.species()
+registryDB %>% cleanup.ecosystems()
   
-  # Delete sites
-  registryDB %>% delete.sites(deletesitecodes)
+#### FOOTNOTES - Generate footnotes for species and ecosystems ####
+registryDB %>% generate.footnotes(crosswalk_SpeciesID,
+                                  DB_BIOTICS_ELEMENT_NATIONAL,
+                                  DB_Species,
+                                  crosswalk_EcosystemID,
+                                  DB_BIOTICS_ECOSYSTEM,
+                                  DB_Ecosystem)
   
-  # Generate footnotes
-  registryDB %>% generate.footnotes(crosswalk_SpeciesID,
-                                    DB_BIOTICS_ELEMENT_NATIONAL,
-                                    DB_Species,
-                                    crosswalk_EcosystemID,
-                                    DB_BIOTICS_ECOSYSTEM,
-                                    DB_Ecosystem)
-  
-  # Clean up other records 
-  registryDB %>% cleanup.internalboundary()
-  registryDB %>% cleanup.species()
-  registryDB %>% cleanup.ecosystems()
-  
-  # End transaction, if no errors
-  registryDB %>% dbCommit()
+# End transaction, if no errors
+registryDB %>% dbCommit()
   
 },error=function(e){
   
