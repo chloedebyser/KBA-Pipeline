@@ -7,7 +7,7 @@
 # Instead, please edit the code locally and push your edits to the GitHub repository.             #
 ###################################################################################################
 
-#### TO DO: Add footnotes ecosystems, where applicable (e.g. change in classification of ecosystem, change in status, etc.) - Dean
+#### TO DO: Add footnotes for ecosystems, where applicable (e.g. change in classification of ecosystem, change in status, etc.) - Dean
 
 #### Workspace ####
 # Packages
@@ -132,16 +132,16 @@ DB_KBASite %<>%
 DB_KBASite %<>%
   mutate(sitestatus = replace(sitestatus, nationalname == "Long Point Peninsula and Marshes" & version == 1, 9))
 
-# # TEMP: PRETENT MARBLE RIDGE ALVAR IS ACCEPTED
-# DB_KBASite %<>%
-#   mutate(sitestatus = replace(sitestatus, nationalname == "Marble Ridge Alvar", 6),
-#          sitecode = replace(sitecode, nationalname == "Marble Ridge Alvar", "MB999"),
-#          confirmdate = replace(confirmdate, nationalname == "Marble Ridge Alvar", Sys.time() %>% with_tz(., tzone="GMT")),
-#          n_ecosystematsite = replace(n_ecosystematsite, nationalname == "Marble Ridge Alvar", 1),
-#          n_biodivelementdistribution = replace(n_biodivelementdistribution, nationalname == "Marble Ridge Alvar", 1))
-# 
-# DB_Ecosystem %<>%
-#   mutate(kba_group = replace(kba_group, ecosystemid == DB_BIOTICS_ECOSYSTEM[which(DB_BIOTICS_ECOSYSTEM$cnvc_english_name == "Manitoba Alvar"), "ecosystemid"], "Grassland & Shrubland"))
+# TEMP: PRETENT MARBLE RIDGE ALVAR IS ACCEPTED
+DB_KBASite %<>%
+  mutate(sitestatus = replace(sitestatus, nationalname == "Marble Ridge Alvar", 6),
+         sitecode = replace(sitecode, nationalname == "Marble Ridge Alvar", "MB999"),
+         confirmdate = replace(confirmdate, nationalname == "Marble Ridge Alvar", Sys.time() %>% with_tz(., tzone="GMT")),
+         n_ecosystematsite = replace(n_ecosystematsite, nationalname == "Marble Ridge Alvar", 1),
+         n_biodivelementdistribution = replace(n_biodivelementdistribution, nationalname == "Marble Ridge Alvar", 1))
+
+DB_Ecosystem %<>%
+  mutate(kba_group = replace(kba_group, ecosystemid == DB_BIOTICS_ECOSYSTEM[which(DB_BIOTICS_ECOSYSTEM$cnvc_english_name == "Manitoba Alvar"), "ecosystemid"], "Grassland & Shrubland"))
 
 #### SPECIES - Update all species ####
 # Read in Bird-specific data
@@ -1149,7 +1149,12 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
       }
     }
   }
-  rm(spp, nameType, field)
+  rm(spp, nameType, field) %>% suppressWarnings()
+  
+  ### Add HTML tags to superscripts in website text
+  for(field in c("SiteDescription_EN", "SiteDescription_FR", "BiodiversitySummary_EN", "BiodiversitySummary_FR", "Conservation_EN", "Conservation_FR", "CustomaryJurisdiction_EN", "CustomaryJurisdiction_FR", "CustomaryJurisdictionSource_EN", "CustomaryJurisdictionSource_FR", "Disclaimer_EN", "Disclaimer_FR", "SiteHistory_EN", "SiteHistory_FR", "PublicCredit_EN", "PublicCredit_FR", "ObsoleteReason_EN", "ObsoleteReason_FR")){
+    REGS_KBA_Website[1, field] <- gsub("m2", "m<sup>2</sup>", REGS_KBA_Website[1, field], fixed=T)
+  }
   
   ### Add/update information for the site in the Registry Database ###
   # Start transaction
