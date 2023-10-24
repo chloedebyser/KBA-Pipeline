@@ -504,7 +504,7 @@ generate.footnotes <- function(.db,crosswalk_SpeciesID,
             if(iucnstatus!=status){
               Footnote_EN <- c(Footnote_EN,paste0("At the time of KBA assessment, this taxon was ranked as ",
                                                   speciesstatus,". Since then, it has been reassessed as ",
-                                                  cosewicstatus,"."))
+                                                  iucnstatus,"."))
               Footnote_FR <- c(Footnote_FR,paste0("Ce taxon avait un statut de ",
                                                   speciesstatus,
                                                   " en date d’évaluation de la KBA. Son statut est dorénavant ",
@@ -552,11 +552,91 @@ generate.footnotes <- function(.db,crosswalk_SpeciesID,
       }
     }
   }
+  if(nrow(EcosystemAssessments)>0){
+    for (i in 1:nrow(EcosystemAssessments)) {
+      regEcosystemID <- EcosystemAssessments %>% slice(i) %>% pull(EcosystemID)
+      if(regEcosystemID %in% crosswalk_EcosystemID$REG_EcosystemID){
+        DB_EcosystemID <- crosswalk_EcosystemID %>% filter(REG_EcosystemID==regEcosystemID)  %>% pull(DB_EcosystemID)
+        OriginalScientificName_EN <- EcosystemAssessments %>% slice(i) %>% pull(Original_ScientificNameEN)
+        OriginalScientificName_FR <- EcosystemAssessments %>% slice(i) %>% pull(Original_ScientificNameFR)
+        OriginalType_EN <- EcosystemAssessments %>% slice(i) %>% pull(Original_TypeEN)
+        OriginalType_FR <- EcosystemAssessments %>% slice(i) %>% pull(Original_TypeFR)
+        ScientificName_EN <- Ecosystem %>% filter(EcosystemID==regEcosystemID) %>% pull(ScientificName_EN_HTML) 
+        ScientificName_FR <- Ecosystem %>% filter(EcosystemID==regEcosystemID) %>% pull(ScientificName_FR_HTML) 
+        Type_EN <- Ecosystem %>% filter(EcosystemID==regEcosystemID) %>% pull(EcosystemType_EN)
+        Type_FR <-   Ecosystem %>% filter(EcosystemID==regEcosystemID) %>% pull(EcosystemType_FR)
+        OriginalStatus <- EcosystemAssessments %>% slice(i) %>% pull(EcosystemStatus)
+        ecosystemcriteria <- EcosystemAssessmentsSub %>% 
+          filter(EcosystemAssessmentsID==EcosystemAssessments$EcosystemAssessmentsID[i]) %>%
+          pull(Subcriterion) %>% substr(.,1,1)
+        Footnote_EN <- c()
+        Footnote_FR <- c()
+        if(!is.na(OriginalStatus)& "A" %in% ecosystemcriteria){
+          assessmentagency <- str_split_1(OriginalStatus," ")[2]
+          status <- str_split_1(OriginalStatus," ")[1]
+          if(assessmentagency=="(IUCN)"){
+            iucnstatus <- DB_Ecosystem %>% filter(ecosystemid==DB_EcosystemID) %>% pull(iucn_cd)
+            if(is.na(iucnstatus)){iucnstatus<-"NE"}
+            if(iucnstatus!=status){
+              Footnote_EN <- c(Footnote_EN,paste0("At the time of KBA assessment, this ecosystem was ranked as ",
+                                                  OriginalStatus,". Since then, it has been reassessed as ",
+                                                  iucnstatus,"."))
+              Footnote_FR <- c(Footnote_FR,paste0("Ce type d’écosystème avait un statut de ",
+                                                  OriginalStatus,
+                                                  " en date d’évaluation de la KBA. Son statut est dorénavant ",
+                                                  iucnstatus,"."))
+              
+            }
+          }
+          if(assessmentagency=="(NatureServe)"){
+            if(str_sub(status,1,1) %in% c("G","T")){
+              nsrank <- DB_BIOTICS_ECOSYSTEM %>% filter(ecosystemid==DB_EcosystemID) %>% pull(rounded_g_rank)
+              if(is.na(nsrank)){nsrank<-"GNR"}
+            } else {
+              nsrank <- DB_BIOTICS_ECOSYSTEM %>% filter(ecosystemid==DB_EcosystemID) %>% pull(rounded_n_rank)
+              if(is.na(nsrank)){nsrank<-"NNR"}
+            }
+            
+            if(nsrank!=status){
+              Footnote_EN <- c(Footnote_EN,paste0("At the time of KBA assessment, this ecosystem was ranked as ",
+                                                  OriginalStatus,". Since then, it has been reassessed as ",
+                                                  nsrank,"."))
+              Footnote_FR <- c(Footnote_FR,paste0("Ce type d’écosystème avait un statut de ",
+                                                  OriginalStatus,
+                                                  " en date d’évaluation de la KBA. Son statut est dorénavant ",
+                                                  nsrank,"."))
+              
+            }
+          }  
+          
+        }
+        
+        if(any(!identical(OriginalScientificName_EN,ScientificName_EN),!identical(OriginalType_EN,Type_EN))){
+          Footnote_EN <- c(Footnote_EN,paste0("This ecosystem type used to be known as ",OriginalType_EN," (",OriginalScientificName_EN,") at the time of KBA assessment. It has since been renamed to ",Type_EN," (",ScientificName_EN,")."))
+        }
+        if(any(!identical(OriginalScientificName_FR,ScientificName_FR),!identical(OriginalType_FR,Type_FR))){
+          Footnote_FR <- c(Footnote_FR,paste0("Ce type d’écosystème était anciennement connu sous le nom de ",OriginalType_FR," (",OriginalScientificName_FR,"). Il est dorénavant connu sous le nom de ",Type_FR," (<i>",ScientificName_FR,")."))
+        }
+        
+        
+        if(any(length(Footnote_EN)>0,length(Footnote_FR)>0)){
+          footnoteid <- if(nrow(Footnote)>0){max(Footnote$FootnoteID)+1} else{1}
+          Footnote %<>% add_row(FootnoteID=footnoteid,
+                                Footnote_EN=paste0(Footnote_EN,collapse = " "),
+                                Footnote_FR=paste0(Footnote_FR,collapse = " "))
+          EcosystemAssessments$FootnoteID[i] <- footnoteid
+        }
+      }
+    }
+  }
   New_SpeciesAssessments <- SpeciesAssessments %>% filter(!is.na(FootnoteID))
+  New_EcosystemAssessments <- EcosystemAssessments %>% filter(!is.na(FootnoteID))
   SpeciesAssessments %<>% mutate(FootnoteID=NA)
+  EcosystemAssessments %<>% mutate(FootnoteID=NA)
   OldFootnote <- .db %>% tbl("Footnote") %>% collect() %>% arrange(FootnoteID)
   .db  %>% update.table("Footnote","FootnoteID",Footnote,OldFootnote,full = T)
   .db  %>% update.table("KBA_SpeciesAssessments","SpeciesAssessmentsID",New_SpeciesAssessments, SpeciesAssessments, full = F)
+  .db  %>% update.table("KBA_EcosystemAssessments","EcosystemAssessmentsID",New_EcosystemAssessments, EcosystemAssessments, full = F)
   
   
 }
