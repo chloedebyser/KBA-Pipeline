@@ -1140,7 +1140,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
         }
           
         # If different, replace original name with new name in relevant text fields
-        if(!originalName == newName){
+        if(!is.na(originalName) && !originalName == newName){
           
           for(field in c("SiteDescription_EN", "SiteDescription_FR", "BiodiversitySummary_EN", "BiodiversitySummary_FR", "Conservation_EN", "Conservation_FR", "CustomaryJurisdiction_EN", "CustomaryJurisdiction_FR", "Disclaimer_EN", "Disclaimer_FR", "SiteHistory_EN", "SiteHistory_FR", "ObsoleteReason_EN", "ObsoleteReason_FR")){
             REGS_KBA_Website[1, field] <- gsub(originalName, newName, REGS_KBA_Website[1, field], fixed=T)
