@@ -7,7 +7,7 @@
 # Instead, please edit the code locally and push your edits to the GitHub repository.             #
 ###################################################################################################
 
-#### TO DO: Add footnotes ecosystems, where applicable (e.g. change in classification of ecosystem, change in status, etc.) - Dean
+#### TO DO: Add footnotes for ecosystems, where applicable (e.g. change in classification of ecosystem, change in status, etc.) - Dean
 
 #### Workspace ####
 # Packages
