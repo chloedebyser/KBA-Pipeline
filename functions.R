@@ -461,7 +461,7 @@ generate.footnotes <- function(.db,crosswalk_SpeciesID,
                          Footnote_FR=character())
   for (i in 1:nrow(SpeciesAssessments)) {
     regSpeciesID <- SpeciesAssessments %>% slice(i) %>% pull(SpeciesID)
-    if(regSpeciesID %in% crosswalk_SpeciesID$REG_SpeciesID){
+    if(regSpeciesID %in% crosswalk_SpeciesID$REG_SpeciesID & regSpeciesID<1000000){
       TaxonomicLevel <- Species %>% filter(SpeciesID==regSpeciesID) %>% pull(TaxonomicLevel)
       if(TaxonomicLevel=="None"){
         Footnote_EN <- "This was a recognized taxon at the time of KBA assessment, however it is no longer considered a valid taxonomic concept."

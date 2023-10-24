@@ -1456,8 +1456,24 @@ REG_KBA_Site <- registryDB %>% read_sf("KBA_Site")
 # Get site codes to delete
 deletesitecodes <- REG_KBA_Site %>% 
   filter(SiteCode %!in% KBASite_retain) %>% 
+  arrange(SiteCode) %>%
   pull(SiteCode)
-  
+
+# Save site deletion notifications
+if(length(deletesitecodes)>0){
+  for (i in 1:length(deletesitecodes)) {
+    provinceid <- REG_KBA_Site %>% filter(SiteCode == deletesitecodes[i]) %>% pull(ProvinceID)
+    siteNotifications %<>% 
+      add_row(sitecode = deletesitecodes[i],
+              sitename = REG_KBA_Site %>% filter(SiteCode == deletesitecodes[i]) %>% pull(Name_EN),
+              jurisdiction = REG_KBA_Province %>% filter(ProvinceID==provinceid)%>% pull(Province_EN),
+              type = "Site deletion",
+              leademail = NA)
+    
+  }
+ 
+
+}
 # Start transaction
 registryDB %>% dbBegin()
 transaction <- T
@@ -1521,10 +1537,10 @@ if(docker_env=="Production"){
 # Send completion email
       # Separate new sites/versions from site edits
 siteNotificationsNew <- siteNotifications %>%
-  filter(!type == "Site edit")
+  filter(type %!in% c("Site edit","Site deletion"))
 
 siteNotificationsEdit <- siteNotifications %>%
-  filter(type == "Site edit")
+  filter(type %in% c("Site edit","Site deletion"))
   
       # Notifications for changes
 if(nrow(siteNotifications) > 0){
@@ -1589,19 +1605,35 @@ if(nrow(siteNotifications) > 0){
   
   # If existing sites were modified
   if(nrow(siteNotificationsEdit) > 0){
-    
+    notificationMessage <- ""
+    if(siteNotificationsEdit %>% filter(type == "Site edit") %>% nrow(.) > 0){
     # Generate text information about every site
     siteNotificationsEdit %<>%
       arrange(sitename) %>%
       mutate(text = paste0("&emsp;&bull; ", sitename, " (", jurisdiction, "): https://kbacanada.org/site/?SiteCode=", sitecode))
     
     # Body of email
-    notificationMessage <- ""
     
     notificationMessage <- paste0(notificationMessage,
                                   "<br><br>The following sites were modified on the Registry:<br>",
-                                  paste(siteNotificationsEdit %>% pull(text), collapse="<br>"),
+                                  paste(siteNotificationsEdit %>% filter(type == "Site edit") %>% pull(text), collapse="<br>"),
                                   "<br>")
+    
+    }
+    if(siteNotificationsEdit %>% filter(type == "Site deletion") %>% nrow(.) > 0){
+      # Generate text information about every site
+      siteNotificationsEdit %<>%
+        arrange(sitename) %>%
+        mutate(text = paste0("&emsp;&bull; ", sitename, " (", jurisdiction, ")"))
+      
+      # Body of email
+      
+      notificationMessage <- paste0(notificationMessage,
+                                    "<br><br>The following sites were deleted from the Registry:<br>",
+                                    paste(siteNotificationsEdit %>% filter(type == "Site deletion") %>% pull(text), collapse="<br>"),
+                                    "<br>")
+      
+    }
     
     # Vector of emails to notify
     notificationEmails <-  c("devans@birdscanada.org", "cdebyser@wcs.org")
