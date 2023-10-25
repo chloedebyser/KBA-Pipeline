@@ -481,26 +481,7 @@ transaction <- FALSE
 for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   tryCatch({
-    
-  ### Load Registry data tables ###
-  for(i in 1:length(dataTables)){
-    
-    # Get data
-          # If spatial
-    if(dataTables[[i]][2]){
-      data <- registryDB %>% read_sf(dataTables[[i]][1])
-      
-          # If non-spatial
-    }else{
-      data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
-    }
-      
-    # Assign data
-    assign(paste0("REG_", dataTables[[i]][1]), data)
-    rm(data)
-  }
-  rm(i)
-    
+
   ### Only process sites that are ready for and in need of publishing ###
   # Only process sites with status = "Publication of National Site" or beyond
   accepted <- DB_KBASite %>%
@@ -518,6 +499,55 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # Filter KBA-EBAR data
   filter_KBAEBARDatabase(KBASiteIDs = id, RMUnfilteredDatasets = F)
   
+  ### Load Registry data tables ###
+  if(dbIsValid(registryDB)){
+  for(i in 1:length(dataTables)){
+    
+    # Get data
+    # If spatial
+    if(dataTables[[i]][2]){
+      data <- registryDB %>% read_sf(dataTables[[i]][1])
+      
+      # If non-spatial
+    }else{
+      data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
+    }
+    
+    # Assign data
+    assign(paste0("REG_", dataTables[[i]][1]), data)
+    rm(data)
+  }
+  rm(i)
+  } else {
+    ### Try to reconnect
+    registryDB <- dbConnect(
+      Postgres(), 
+      user = postgres_user,
+      password = postgres_pass,
+      dbname = database_name,
+      host = database_host,
+      port = database_port
+    )
+    for(i in 1:length(dataTables)){
+      
+      # Get data
+      # If spatial
+      if(dataTables[[i]][2]){
+        data <- registryDB %>% read_sf(dataTables[[i]][1])
+        
+        # If non-spatial
+      }else{
+        data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
+      }
+      
+      # Assign data
+      assign(paste0("REG_", dataTables[[i]][1]), data)
+      rm(data)
+    }
+    rm(i)
+    
+  }
+
   # Do not process site if there are multiple accepted versions of the same site
   acceptedVersions <- DB_KBASite %>%
     filter(sitecode == DBS_KBASite$sitecode, sitestatus %in% 6:8)
@@ -1445,7 +1475,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   })
   
   ### Remove site-specific data ###
-  rm(list=setdiff(ls(), c(ls(pattern = "DB_"), ls(pattern = "REG_"), ls(pattern = "REGA_"), "id", "lastPipelineRun", "relevantReferenceEstimates_spp", "relevantReferenceEstimates_eco", "sensitiveSpecies", "maxSensitiveSpeciesID", "siteNotifications", "siteErrors", "dataTables", "registryDB", "crosswalk_SpeciesID", "crosswalk_EcosystemID", "read_KBACanadaProposalForm", "read_KBAEBARDatabase", "filter_KBAEBARDatabase", "check_KBADataValidity", "trim_KBAEBARDataset", "update_KBAEBARDataset", "primaryKey_KBAEBARDataset", "mailtrap_pass", "pipeline.email", "cleanup.internalboundary", "cleanup.footnote", "cleanup.ecosystems", "cleanup.species", "delete.sites", "getSpeciesLinks", "url_exists", "update.table", "delete.id", "updatetextSQL", "%!in%","create.shapefile", "geoserver_pass","docker_env","transaction","generate.footnotes")))
+  rm(list=setdiff(ls(), c(ls(pattern = "DB_"), ls(pattern = "REG_"), ls(pattern = "REGA_"), "id", "lastPipelineRun", "relevantReferenceEstimates_spp", "relevantReferenceEstimates_eco", "sensitiveSpecies", "maxSensitiveSpeciesID", "siteNotifications", "siteErrors", "dataTables", "registryDB", "crosswalk_SpeciesID", "crosswalk_EcosystemID", "read_KBACanadaProposalForm", "read_KBAEBARDatabase", "filter_KBAEBARDatabase", "check_KBADataValidity", "trim_KBAEBARDataset", "update_KBAEBARDataset", "primaryKey_KBAEBARDataset", "mailtrap_pass", "pipeline.email", "cleanup.internalboundary", "cleanup.footnote", "cleanup.ecosystems", "cleanup.species", "delete.sites", "getSpeciesLinks", "url_exists", "update.table", "delete.id", "updatetextSQL", "%!in%","create.shapefile", "geoserver_pass","docker_env","transaction","generate.footnotes","kbapipeline_pswd", "postgres_user", "postgres_pass", "database_name", "database_host", "mailtrap_pass", "database_port")))
 }
 rm(id)
 
