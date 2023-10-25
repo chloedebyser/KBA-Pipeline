@@ -634,6 +634,7 @@ generate.footnotes <- function(.db,crosswalk_SpeciesID,
   SpeciesAssessments %<>% mutate(FootnoteID=NA)
   EcosystemAssessments %<>% mutate(FootnoteID=NA)
   OldFootnote <- .db %>% tbl("Footnote") %>% collect() %>% arrange(FootnoteID)
+  Footnote %<>% replace(.=="",NA)
   .db  %>% update.table("Footnote","FootnoteID",Footnote,OldFootnote,full = T)
   .db  %>% update.table("KBA_SpeciesAssessments","SpeciesAssessmentsID",New_SpeciesAssessments, SpeciesAssessments, full = F)
   .db  %>% update.table("KBA_EcosystemAssessments","EcosystemAssessmentsID",New_EcosystemAssessments, EcosystemAssessments, full = F)

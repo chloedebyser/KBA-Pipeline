@@ -1425,6 +1425,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     registryDB %>% dbRollback() ### rollback site on error
       transaction <- FALSE
     }
+    if(exists("DBS_KBASite")){
     message(paste(DBS_KBASite$nationalname, "KBA not processed."))
     
     # Store error info
@@ -1433,7 +1434,14 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
               sitecode=DBS_KBASite$sitecode,
               error=e[["message"]])
     message(paste0(e[["message"]], "\n"))
-
+    } else {
+      siteErrors <<- siteErrors %>% 
+        add_row(site="Unknown Site (Missing DBS_KBASite) with KBA-EBAR ID ",
+                sitecode=paste0(id),
+                error=e[["message"]])
+      message(paste0(e[["message"]], "\n"))
+      
+    }
   })
   
   ### Remove site-specific data ###
