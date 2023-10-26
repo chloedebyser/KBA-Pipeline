@@ -14,3 +14,4 @@ lastPipelineRun.RDS
 *.shp
 *.shx
 *.zip
+Shapefile/*xlsx

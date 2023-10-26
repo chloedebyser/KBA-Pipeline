@@ -407,6 +407,8 @@ updateSpeciesNames <- function(species){
 
 create.shapefile <- function(registryDB,path="Shapefile",sitecodes=c()){
   Province <- registryDB %>% tbl("KBA_Province") %>% collect()
+  Species <- registryDB %>% tbl("Species") %>% collect()
+  Ecosystem <- registryDB %>% tbl("Ecosystem") %>% collect()
   KBA_Site <- registryDB %>% read_sf("KBA_Site") %>% 
     filter(SiteCode %in% sitecodes,!BoundaryGeneralized) %>%
     left_join(Province, by="ProvinceID") %>%
@@ -419,22 +421,41 @@ create.shapefile <- function(registryDB,path="Shapefile",sitecodes=c()){
   write_sf(KBA_Site,file.path(path,"KBA_Site.shp"))
   # Find Internal Boundaries
   KBA_SpeciesAssessment <- registryDB %>% tbl("KBA_SpeciesAssessments") %>% collect() %>%
-    filter(SiteID %in% KBA_Site$SiteID) %>%
+    filter(SiteID %in% KBA_Site$SiteID,!is.na(InternalBoundaryID)) %>%
     left_join(KBA_Site,by="SiteID") %>%
-    select(SiteCode,InternalBoundaryID)
+    select(SiteCode,SpeciesID,InternalBoundaryID) %>%
+    left_join(Species %>% 
+                select(SpeciesID,ScientificName,CommonName_EN,CommonName_FR,Subspecies_EN,Subspecies_FR,Population_EN,Population_FR),by="SpeciesID") %>%
+    rowwise %>%
+    mutate(CommonName_EN=paste0(na.omit(c(paste0(na.omit(c(CommonName_EN,Subspecies_EN)),collapse = " "),Population_EN),collapse=" - ")),
+           CommonName_FR=paste0(na.omit(c(paste0(na.omit(c(CommonName_FR,Subspecies_FR)),collapse = " "),Population_FR),collapse=" - "))) %>% ungroup() %>% select(-Subspecies_EN,-Subspecies_FR,-Population_EN,-Population_FR) %>%
+    replace(.=="",NA)
+  InternalSpecies <- KBA_SpeciesAssessment %>% select(InternalBoundaryID,CommonName_EN,CommonName_FR,ScientificName)
+  
   KBA_EcosystemAssessment <- registryDB %>% tbl("KBA_EcosystemAssessments") %>% collect() %>%
     filter(SiteID %in% KBA_Site$SiteID) %>%
     left_join(KBA_Site,by="SiteID") %>%
-    select(SiteCode,InternalBoundaryID)
+    select(SiteCode,EcosystemID,InternalBoundaryID) %>%
+    left_join(Ecosystem%>% select(EcosystemID,EcosystemType_EN,EcosystemType_FR,ScientificName_EN,ScientificName_FR), by="EcosystemID")
+  InternalEcosystem<- KBA_EcosystemAssessment %>% select(InternalBoundaryID,EcosystemType_EN,EcosystemType_FR,ScientificName_EN,ScientificName_FR)
+  KBA_SpeciesAssessment %<>% select(SiteCode,InternalBoundaryID)
+  KBA_EcosystemAssessment %<>% select(SiteCode,InternalBoundaryID)
   getInternalBoundaries <- bind_rows(KBA_SpeciesAssessment,KBA_EcosystemAssessment)
   InternalBoundaries <- registryDB %>% read_sf("InternalBoundary") %>% 
     filter(InternalBoundaryID %in% getInternalBoundaries$InternalBoundaryID) %>%
     left_join(getInternalBoundaries,by="InternalBoundaryID") %>%
     relocate(SiteCode) %>%
     rename(BoundaryID=InternalBoundaryID) %>%
-    select(SiteCode,BoundaryID,Name_EN,Name_FR)
+    select(SiteCode,BoundaryID,Name_EN,Name_FR) %>%
+    distinct()
   if(nrow(InternalBoundaries)>0){
     write_sf(InternalBoundaries,file.path(path,"InternalBoundary.shp"))
+  }
+  if(nrow(InternalSpecies)>0){
+    write.xlsx(InternalSpecies,file.path(path,"InternalSpecies.xlsx"))
+  }
+  if(nrow(InternalEcosystem)>0){
+    write.xlsx(InternalEcosystem,file.path(path,"InternalEcosystems.xlsx"))
   }
   ### Zip file
   zip::zip(file.path(path,paste0("KBAs_",Sys.Date(),".zip")),list.files("Shapefile",full.names = T),mode = "cherry-pick")
