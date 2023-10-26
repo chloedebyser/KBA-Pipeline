@@ -117,30 +117,6 @@ if(backupdate < lastPipelineRun){
   stop("There has not been a backup since the last pipeline run. Please check if backups are still working.")
 }
 
-#### Temporary site filters/data edits - TO DO: Remove once done with testing ####
-# TEMP: PRETEND THAT LONG POINT V2 IS ACCEPTED
-DB_KBASite %<>%
-  mutate(sitestatus = replace(sitestatus, nationalname == "Long Point Peninsula and Marshes" & version == 2, 6),
-         confirmdate = replace(confirmdate, nationalname == "Long Point Peninsula and Marshes" & version == 2, Sys.time() %>% with_tz(., tzone="GMT")),
-         n_speciesatsite = replace(n_speciesatsite, nationalname == "Long Point Peninsula and Marshes" & version == 2, 30),
-         n_kbainputpolygon = replace(n_kbainputpolygon, nationalname == "Long Point Peninsula and Marshes" & version == 2, 3),
-         n_kbacustompolygon = replace(n_kbacustompolygon, nationalname == "Long Point Peninsula and Marshes" & version == 2, 4))
-
-# TEMP: PRETEND THAT LONG POINT V1 IS REPLACED
-DB_KBASite %<>%
-  mutate(sitestatus = replace(sitestatus, nationalname == "Long Point Peninsula and Marshes" & version == 1, 9))
-
-# TEMP: PRETENT MARBLE RIDGE ALVAR IS ACCEPTED
-DB_KBASite %<>%
-  mutate(sitestatus = replace(sitestatus, nationalname == "Marble Ridge Alvar", 6),
-         sitecode = replace(sitecode, nationalname == "Marble Ridge Alvar", "MB999"),
-         confirmdate = replace(confirmdate, nationalname == "Marble Ridge Alvar", Sys.time() %>% with_tz(., tzone="GMT")),
-         n_ecosystematsite = replace(n_ecosystematsite, nationalname == "Marble Ridge Alvar", 1),
-         n_biodivelementdistribution = replace(n_biodivelementdistribution, nationalname == "Marble Ridge Alvar", 1))
-
-DB_Ecosystem %<>%
-  mutate(kba_group = replace(kba_group, ecosystemid == DB_BIOTICS_ECOSYSTEM[which(DB_BIOTICS_ECOSYSTEM$cnvc_english_name == "Manitoba Alvar"), "ecosystemid"], "Grassland & Shrubland"))
-
 #### SPECIES - Update all species ####
 # Read in Bird-specific data
 Bird_Species <- fromJSON("https://kba-maps.deanrobertevans.ca/api/species") %>%
