@@ -7,8 +7,6 @@
 # Instead, please edit the code locally and push your edits to the GitHub repository.             #
 ###################################################################################################
 
-#### TO DO: Add footnotes for ecosystems, where applicable (e.g. change in classification of ecosystem, change in status, etc.) - Dean
-
 #### Workspace ####
 # Packages
 library(httr)
@@ -118,30 +116,6 @@ backupdate <- REG_BackupDate %>% filter(datetime==max(datetime)) %>% pull(dateti
 if(backupdate < lastPipelineRun){
   stop("There has not been a backup since the last pipeline run. Please check if backups are still working.")
 }
-
-#### Temporary site filters/data edits - TO DO: Remove once done with testing ####
-# TEMP: PRETEND THAT LONG POINT V2 IS ACCEPTED
-DB_KBASite %<>%
-  mutate(sitestatus = replace(sitestatus, nationalname == "Long Point Peninsula and Marshes" & version == 2, 6),
-         confirmdate = replace(confirmdate, nationalname == "Long Point Peninsula and Marshes" & version == 2, Sys.time() %>% with_tz(., tzone="GMT")),
-         n_speciesatsite = replace(n_speciesatsite, nationalname == "Long Point Peninsula and Marshes" & version == 2, 30),
-         n_kbainputpolygon = replace(n_kbainputpolygon, nationalname == "Long Point Peninsula and Marshes" & version == 2, 3),
-         n_kbacustompolygon = replace(n_kbacustompolygon, nationalname == "Long Point Peninsula and Marshes" & version == 2, 4))
-
-# TEMP: PRETEND THAT LONG POINT V1 IS REPLACED
-DB_KBASite %<>%
-  mutate(sitestatus = replace(sitestatus, nationalname == "Long Point Peninsula and Marshes" & version == 1, 9))
-
-# TEMP: PRETENT MARBLE RIDGE ALVAR IS ACCEPTED
-DB_KBASite %<>%
-  mutate(sitestatus = replace(sitestatus, nationalname == "Marble Ridge Alvar", 6),
-         sitecode = replace(sitecode, nationalname == "Marble Ridge Alvar", "MB999"),
-         confirmdate = replace(confirmdate, nationalname == "Marble Ridge Alvar", Sys.time() %>% with_tz(., tzone="GMT")),
-         n_ecosystematsite = replace(n_ecosystematsite, nationalname == "Marble Ridge Alvar", 1),
-         n_biodivelementdistribution = replace(n_biodivelementdistribution, nationalname == "Marble Ridge Alvar", 1))
-
-DB_Ecosystem %<>%
-  mutate(kba_group = replace(kba_group, ecosystemid == DB_BIOTICS_ECOSYSTEM[which(DB_BIOTICS_ECOSYSTEM$cnvc_english_name == "Manitoba Alvar"), "ecosystemid"], "Grassland & Shrubland"))
 
 #### SPECIES - Update all species ####
 # Read in Bird-specific data
@@ -557,30 +531,20 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     }
   }
   
+  # TEMP - Stop existing IBAs from being processed in the production environment until proposal forms are (TO DO: Remove once proposal forms are ready)
+  if(docker_env=="Production"){
+    
+    if(!is.na(DBS_KBASite$birdstechnicalreviewlink)){
+      processSite <- F
+    }
+  }
+  
   # Only proceed with the rest of the loop if the site is ready for processing
   if(!processSite){next}
   
-  # Load Registry data tables only for sites needing processing 
-  if(dbIsValid(registryDB)){
-    for(i in 1:length(dataTables)){
-      
-      # Get data
-      # If spatial
-      if(dataTables[[i]][2]){
-        data <- registryDB %>% read_sf(dataTables[[i]][1])
-        
-        # If non-spatial
-      }else{
-        data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
-      }
-      
-      # Assign data
-      assign(paste0("REG_", dataTables[[i]][1]), data)
-      rm(data)
-    }
-    rm(i)
-  } else {
-    ### Try to reconnect
+  ### Load Registry data ###
+        # If database connection lost, try to reconnect
+  if(!dbIsValid(registryDB)){
     registryDB <- dbConnect(
       Postgres(), 
       user = postgres_user,
@@ -589,25 +553,26 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
       host = database_host,
       port = database_port
     )
-    for(i in 1:length(dataTables)){
-      
-      # Get data
-      # If spatial
-      if(dataTables[[i]][2]){
-        data <- registryDB %>% read_sf(dataTables[[i]][1])
-        
-        # If non-spatial
-      }else{
-        data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
-      }
-      
-      # Assign data
-      assign(paste0("REG_", dataTables[[i]][1]), data)
-      rm(data)
-    }
-    rm(i)
-    
   }
+  
+        # Load data
+  for(i in 1:length(dataTables)){
+    
+              # Get data
+                    # If spatial
+    if(dataTables[[i]][2]){
+      data <- registryDB %>% read_sf(dataTables[[i]][1])
+        
+                    # If non-spatial
+    }else{
+      data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
+    }
+      
+              # Assign data
+    assign(paste0("REG_", dataTables[[i]][1]), data)
+    rm(data)
+  }
+  rm(i)
   
   ### Only retain biodiversity elements that meet KBA criteria ###
   # Species
