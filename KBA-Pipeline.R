@@ -7,8 +7,6 @@
 # Instead, please edit the code locally and push your edits to the GitHub repository.             #
 ###################################################################################################
 
-#### TO DO: Add footnotes for ecosystems, where applicable (e.g. change in classification of ecosystem, change in status, etc.) - Dean
-
 #### Workspace ####
 # Packages
 library(httr)
@@ -560,27 +558,9 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # Only proceed with the rest of the loop if the site is ready for processing
   if(!processSite){next}
   
-  # Load Registry data tables only for sites needing processing 
-  if(dbIsValid(registryDB)){
-    for(i in 1:length(dataTables)){
-      
-      # Get data
-      # If spatial
-      if(dataTables[[i]][2]){
-        data <- registryDB %>% read_sf(dataTables[[i]][1])
-        
-        # If non-spatial
-      }else{
-        data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
-      }
-      
-      # Assign data
-      assign(paste0("REG_", dataTables[[i]][1]), data)
-      rm(data)
-    }
-    rm(i)
-  } else {
-    ### Try to reconnect
+  ### Load Registry data ###
+        # If database connection lost, try to reconnect
+  if(!dbIsValid(registryDB)){
     registryDB <- dbConnect(
       Postgres(), 
       user = postgres_user,
@@ -589,25 +569,26 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
       host = database_host,
       port = database_port
     )
-    for(i in 1:length(dataTables)){
-      
-      # Get data
-      # If spatial
-      if(dataTables[[i]][2]){
-        data <- registryDB %>% read_sf(dataTables[[i]][1])
-        
-        # If non-spatial
-      }else{
-        data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
-      }
-      
-      # Assign data
-      assign(paste0("REG_", dataTables[[i]][1]), data)
-      rm(data)
-    }
-    rm(i)
-    
   }
+  
+        # Load data
+  for(i in 1:length(dataTables)){
+    
+              # Get data
+                    # If spatial
+    if(dataTables[[i]][2]){
+      data <- registryDB %>% read_sf(dataTables[[i]][1])
+        
+                    # If non-spatial
+    }else{
+      data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
+    }
+      
+              # Assign data
+    assign(paste0("REG_", dataTables[[i]][1]), data)
+    rm(data)
+  }
+  rm(i)
   
   ### Only retain biodiversity elements that meet KBA criteria ###
   # Species
