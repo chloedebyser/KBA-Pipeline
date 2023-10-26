@@ -499,55 +499,6 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # Filter KBA-EBAR data
   filter_KBAEBARDatabase(KBASiteIDs = id, RMUnfilteredDatasets = F)
   
-  ### Load Registry data tables ###
-  if(dbIsValid(registryDB)){
-  for(i in 1:length(dataTables)){
-    
-    # Get data
-    # If spatial
-    if(dataTables[[i]][2]){
-      data <- registryDB %>% read_sf(dataTables[[i]][1])
-      
-      # If non-spatial
-    }else{
-      data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
-    }
-    
-    # Assign data
-    assign(paste0("REG_", dataTables[[i]][1]), data)
-    rm(data)
-  }
-  rm(i)
-  } else {
-    ### Try to reconnect
-    registryDB <- dbConnect(
-      Postgres(), 
-      user = postgres_user,
-      password = postgres_pass,
-      dbname = database_name,
-      host = database_host,
-      port = database_port
-    )
-    for(i in 1:length(dataTables)){
-      
-      # Get data
-      # If spatial
-      if(dataTables[[i]][2]){
-        data <- registryDB %>% read_sf(dataTables[[i]][1])
-        
-        # If non-spatial
-      }else{
-        data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
-      }
-      
-      # Assign data
-      assign(paste0("REG_", dataTables[[i]][1]), data)
-      rm(data)
-    }
-    rm(i)
-    
-  }
-
   # Do not process site if there are multiple accepted versions of the same site
   acceptedVersions <- DB_KBASite %>%
     filter(sitecode == DBS_KBASite$sitecode, sitestatus %in% 6:8)
@@ -608,6 +559,55 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   # Only proceed with the rest of the loop if the site is ready for processing
   if(!processSite){next}
+  
+  # Load Registry data tables only for sites needing processing 
+  if(dbIsValid(registryDB)){
+    for(i in 1:length(dataTables)){
+      
+      # Get data
+      # If spatial
+      if(dataTables[[i]][2]){
+        data <- registryDB %>% read_sf(dataTables[[i]][1])
+        
+        # If non-spatial
+      }else{
+        data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
+      }
+      
+      # Assign data
+      assign(paste0("REG_", dataTables[[i]][1]), data)
+      rm(data)
+    }
+    rm(i)
+  } else {
+    ### Try to reconnect
+    registryDB <- dbConnect(
+      Postgres(), 
+      user = postgres_user,
+      password = postgres_pass,
+      dbname = database_name,
+      host = database_host,
+      port = database_port
+    )
+    for(i in 1:length(dataTables)){
+      
+      # Get data
+      # If spatial
+      if(dataTables[[i]][2]){
+        data <- registryDB %>% read_sf(dataTables[[i]][1])
+        
+        # If non-spatial
+      }else{
+        data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
+      }
+      
+      # Assign data
+      assign(paste0("REG_", dataTables[[i]][1]), data)
+      rm(data)
+    }
+    rm(i)
+    
+  }
   
   ### Only retain biodiversity elements that meet KBA criteria ###
   # Species
