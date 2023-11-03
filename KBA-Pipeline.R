@@ -1579,7 +1579,7 @@ if(nrow(siteNotifications) > 0){
     }
     
     # Vector of emails to notify
-    notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org","acouturier@bsc-eoc.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org") %>%
+    notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org","acouturier@bsc-eoc.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org", "aleung@wcs.org") %>%
       c(., trimws(strsplit(siteNotificationsNew$leademail, ";")[[1]])) %>%
       unique()
     
