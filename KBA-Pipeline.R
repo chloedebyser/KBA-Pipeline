@@ -989,7 +989,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     mutate(SiteID = REG_siteID,
            SpeciesStatus = ifelse(is.na(status_value), NA, paste0(status_value, " (", status_assessmentagency, ")")) %>% as.character(),
            FootnoteID = NA,
-           AssessmentParameter_EN = ifelse(nrow(.)>0, str_to_sentence(substr(assessmentparameter, start=gregexpr(")", assessmentparameter, fixed=T)[[1]][1]+2, stop=nchar(assessmentparameter))), "")) %>%
+           AssessmentParameter_EN = sapply(assessmentparameter, function(x) str_to_sentence(substr(x, start=gregexpr(")", x, fixed=T)[[1]][1]+2, stop=nchar(x)))),
+           AssessmentParameter_EN = as.character(AssessmentParameter_EN)) %>%
     left_join(., REG_AssessmentParameter[,c("AssessmentParameterID", "AssessmentParameter_EN")], by="AssessmentParameter_EN") %>%
     left_join(.,REG_KBA_SpeciesAssessments %>% 
                 select(SpeciesID,SiteID,DateAssessed,Original_ScientificName,Original_CommonNameFR, Original_CommonNameEN) %>% distinct(),
@@ -1579,8 +1580,8 @@ if(nrow(siteNotifications) > 0){
     }
     
     # Vector of emails to notify
-    notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org","acouturier@bsc-eoc.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org") %>%
-      c(., trimws(strsplit(siteNotificationsNew$leademail, ";")[[1]])) %>%
+    notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org","acouturier@bsc-eoc.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org", "aleung@wcs.org") %>%
+      c(., trimws(unlist(strsplit(siteNotificationsNew$leademail, ";")))) %>%
       unique()
     
     # Send email if on production
