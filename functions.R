@@ -474,6 +474,10 @@ generate.footnotes <- function(.db,crosswalk_SpeciesID,
   Subcriterion <- .db %>% tbl("Subcriterion") %>% collect() %>% arrange(SubcriterionID)
   EcosystemAssessments <- .db %>% tbl("KBA_EcosystemAssessments") %>% collect() %>% arrange(EcosystemAssessmentsID) %>%
     mutate(FootnoteID=NA)
+  ### Set footnoteID to null
+  .db %>% dbExecute('UPDATE "KBA_SpeciesAssessments" SET "FootnoteID" = NULL')
+  .db %>% dbExecute('UPDATE "KBA_EcosystemAssessments" SET "FootnoteID" = NULL')
+  
   Species <- .db %>% tbl("Species") %>% collect()
   Ecosystem <- .db %>% tbl("Ecosystem") %>% collect()
   EcosystemAssessmentsSub <- .db %>% tbl("EcosystemAssessment_Subcriterion") %>% collect() %>% arrange(EcosystemAssessmentsID)
