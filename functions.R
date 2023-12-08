@@ -468,10 +468,16 @@ generate.footnotes <- function(.db,crosswalk_SpeciesID,
                                crosswalk_EcosystemID,
                                DB_BIOTICS_ECOSYSTEM,
                                DB_Ecosystem){
-  SpeciesAssessments <- .db %>% tbl("KBA_SpeciesAssessments") %>% collect() %>% arrange(SpeciesAssessmentsID)
+  SpeciesAssessments <- .db %>% tbl("KBA_SpeciesAssessments") %>% collect() %>% arrange(SpeciesAssessmentsID) %>%
+    mutate(FootnoteID=NA)
   SpeciesAssessmentsSub <- .db %>% tbl("SpeciesAssessment_Subcriterion") %>% collect() %>% arrange(SpeciesAssessmentsID)
   Subcriterion <- .db %>% tbl("Subcriterion") %>% collect() %>% arrange(SubcriterionID)
-  EcosystemAssessments <- .db %>% tbl("KBA_EcosystemAssessments") %>% collect() %>% arrange(EcosystemAssessmentsID)
+  EcosystemAssessments <- .db %>% tbl("KBA_EcosystemAssessments") %>% collect() %>% arrange(EcosystemAssessmentsID) %>%
+    mutate(FootnoteID=NA)
+  ### Set footnoteID to null
+  .db %>% dbExecute('UPDATE "KBA_SpeciesAssessments" SET "FootnoteID" = NULL')
+  .db %>% dbExecute('UPDATE "KBA_EcosystemAssessments" SET "FootnoteID" = NULL')
+  
   Species <- .db %>% tbl("Species") %>% collect()
   Ecosystem <- .db %>% tbl("Ecosystem") %>% collect()
   EcosystemAssessmentsSub <- .db %>% tbl("EcosystemAssessment_Subcriterion") %>% collect() %>% arrange(EcosystemAssessmentsID)
