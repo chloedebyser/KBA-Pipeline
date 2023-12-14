@@ -531,14 +531,6 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     }
   }
   
-  # TEMP - Stop existing IBAs from being processed in the production environment until proposal forms are (TO DO: Remove once proposal forms are ready)
-  if(docker_env=="Production"){
-    
-    if(!is.na(DBS_KBASite$birdstechnicalreviewlink)){
-      processSite <- F
-    }
-  }
-  
   # Only proceed with the rest of the loop if the site is ready for processing
   if(!processSite){next}
   
