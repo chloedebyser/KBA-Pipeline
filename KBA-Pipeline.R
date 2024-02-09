@@ -531,10 +531,10 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     }
   }
   
-  # TEMP - Stop existing IBAs from being processed in the production environment until proposal forms are (TO DO: Remove once proposal forms are ready)
+  # TEMP - Stop 5 bird sites from being processed in the production environment until proposal forms are ready (TO DO: Remove once proposal forms are ready)
   if(docker_env=="Production"){
     
-    if(!is.na(DBS_KBASite$birdstechnicalreviewlink)){
+    if(DBS_KBASite$sitecode %in% c("AB002", "BC017", "NT002", "NU007", "ON001")){
       processSite <- F
     }
   }
