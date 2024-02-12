@@ -475,7 +475,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   # Do not process site if there are multiple accepted versions of the same site
   acceptedVersions <- DB_KBASite %>%
-    filter(sitecode == DBS_KBASite$sitecode, sitestatus %in% 6:8)
+    filter(sitecode == DBS_KBASite$sitecode, sitestatus %in% 6:8) %>%
+    filter(!year(confirmdate) == 1900) # Only retain confirmed sites
   
   if(nrow(acceptedVersions) > 1){
     stop("There are multiple accepted versions of this site.")
