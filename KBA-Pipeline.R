@@ -656,7 +656,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
                            paste0(national_engl_name, " (<i>", national_scientific_name, "</i>)"))) %>%
       arrange(text) %>%
       pull(text) %>%
-      {paste0("<p>The following taxa are being proposed as global KBA triggers: ", paste0(., collapse="; "), ". Once accepted, this site will become a global KBA. In the meantime, it is a national KBA.</p>")}
+      {paste0("<p>The following taxa are being reviewed at the global level: ", paste0(., collapse="; "), ". Once accepted, this site will become a global KBA.</p>")}
       
                 # French
     extraDisclaimer_FR <- globalNotAccepted_triggers %>%
@@ -667,7 +667,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
                                   paste0(national_fr_name, " (<i>", national_scientific_name, "</i>)")))) %>%
       arrange(text) %>%
       pull(text) %>%
-      {paste0("<p>Les taxons suivants ont été proposés comme taxons se qualifiant au niveau mondial : ", paste0(., collapse="; "), ". Une fois cette évaluation validée, le site deviendra une KBA mondiale. En attendant, il s'agit d'une KBA nationale.</p>")}
+      {paste0("<p>Les taxons suivants font l'objet d'un examen au niveau mondial : ", paste0(., collapse="; "), ". Une fois cette évaluation validée, le site deviendra une KBA mondiale.</p>")}
   
           # Add to site disclaimer
     DBS_KBASite %<>%
