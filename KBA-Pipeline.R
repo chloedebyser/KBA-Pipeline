@@ -75,7 +75,7 @@ registryDB <- dbConnect(
 )
 
       # Lookup tables
-lookupTables <- c("KBA_Province", "KBA_Level", "Threats", "Conservation", "System", "Habitat", "AssessmentParameter", "COSEWICStatus", "IUCNStatus", "Criterion", "Subcriterion", "Ecosystem_Class")
+lookupTables <- c("KBA_Province", "KBA_Level", "Threats", "Conservation", "System", "Habitat", "AssessmentParameter", "COSEWICStatus", "IUCNStatus", "Criterion", "Subcriterion", "Ecosystem_Category")
 
 for(lookupTable in lookupTables){
   
@@ -300,10 +300,10 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
          ScientificName_FR_HTML = ivc_formatted_scientific_name_fr,
          EcosystemType_EN = cnvc_english_name,
          EcosystemLevel = classification_level_name,
-         Class_EN = class_name,
-         Class_FR = class_name_fr,
-         Subclass_EN = subclass_name,
-         Subclass_FR = subclass_name_fr,
+         Biome_EN = biome_name,
+         Biome_FR = biome_name_fr,
+         Subbiome_EN = subbiome_name,
+         Subbiome_FR = subbiome_name_fr,
          Formation_EN = formation_name,
          Formation_FR = formation_name_fr,
          Division_EN = division_name,
@@ -322,9 +322,10 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
   mutate(EcosystemType_FR = ifelse(is.na(cnvc_french_name), ivc_name_fr, cnvc_french_name),
          Macrogroup_FR = ifelse(is.na(cnvc_mg_frenchname), ivc_mg_name_fr, cnvc_mg_frenchname),
          Group_FR = ifelse(is.na(cnvc_group_frenchname), ivc_group_name_fr, cnvc_group_frenchname),
-         IUCNLink = ifelse(ecosystemid == 113, "https://assessments.iucnrle.org/assessments/12", NA)) %>%
+         IUCNLink = ifelse(ecosystemid == 113, "https://assessments.iucnrle.org/assessments/12", NA),
+         iucn_cd = ifelse(is.na(iucn_cd), "NE", iucn_cd)) %>%
   left_join(., REG_IUCNStatus, by=c("iucn_cd" = "Nomenclature")) %>%
-  left_join(., REG_Ecosystem_Class[,c("EcosystemClassID", "ClassName_EN")], by=c("Subclass_EN" = "ClassName_EN"))
+  left_join(., REG_Ecosystem_Category[,c("EcosystemCategoryID", "CategoryName_EN")], by=c("kba_group" = "CategoryName_EN"))
 
 # Add range information
       # Prepare range information
