@@ -536,7 +536,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # TEMP - Stop 5 bird sites from being processed in the production environment until proposal forms are ready (TO DO: Remove once proposal forms are ready)
   if(docker_env=="Production"){
     
-    if(DBS_KBASite$sitecode %in% c("AB002", "BC017", "NT002", "NU007", "ON001")){
+    if(DBS_KBASite$sitecode %in% c("AB002", "BC017", "NT002", "NU007")){
       processSite <- F
     }
   }
