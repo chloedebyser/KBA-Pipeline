@@ -492,7 +492,14 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     
     # Otherwise, get obsolete reason
     }else{
-      stop("Site is obsolete, but ObsoleteReason text has not been specified.")
+      
+      if(docker_env == "Production"){
+        stop("Site is obsolete, but ObsoleteReason text has not been specified.")
+        
+      }else{
+        ObsoleteReason_EN <- NA
+        ObsoleteReason_FR <- NA
+      }
     }
     
   }else{
@@ -530,6 +537,11 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     
     if(nrow(DBS_EcosystemAtSite) > 0){
       processSite <- F
+    }
+  }else{
+    
+    if(DBS_KBASite$sitestatus == 10){
+      processSite <- T
     }
   }
   
