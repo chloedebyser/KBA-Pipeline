@@ -299,6 +299,7 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
          ScientificName_FR = ivc_scientific_name_fr,
          ScientificName_FR_HTML = ivc_formatted_scientific_name_fr,
          EcosystemType_EN = cnvc_english_name,
+         EcosystemType_FR = cnvc_french_name,
          EcosystemLevel = classification_level_name,
          Biome_EN = biome_name,
          Biome_FR = biome_name_fr,
@@ -319,8 +320,7 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
          WDKBAEcoRecID = wdkbaid,
          IUCNAssessmentDate = iucn_assessmentdate,
          IUCNStatusCriteria = iucn_criteria) %>%
-  mutate(EcosystemType_FR = ifelse(is.na(cnvc_french_name), ivc_name_fr, cnvc_french_name),
-         Macrogroup_FR = ifelse(is.na(cnvc_mg_frenchname), ivc_mg_name_fr, cnvc_mg_frenchname),
+  mutate(Macrogroup_FR = ifelse(is.na(cnvc_mg_frenchname), ivc_mg_name_fr, cnvc_mg_frenchname),
          Group_FR = ifelse(is.na(cnvc_group_frenchname), ivc_group_name_fr, cnvc_group_frenchname),
          IUCNLink = ifelse(ecosystemid == 113, "https://assessments.iucnrle.org/assessments/12", NA),
          iucn_cd = ifelse(is.na(iucn_cd), "NE", iucn_cd)) %>%
@@ -646,8 +646,13 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
              kbalevel_es = "Nacional")
     
     # Add special disclaimer
-          # Get global triggers
-    globalNotAccepted_triggers <- DBS_SpeciesAtSite %>%
+          # Initialize disclaimer
+    extraDisclaimer_EN <- "<p>"
+    extraDisclaimer_FR <- "<p>"
+    
+          # Species
+                # Get global species
+    globalNotAccepted_species <- DBS_SpeciesAtSite %>%
       filter(!is.na(globalcriteria)) %>%
       left_join(., DBS_BIOTICS_ELEMENT_NATIONAL[,c("speciesid", "national_scientific_name", "national_engl_name", "national_fr_name")], by="speciesid") %>%
       mutate(national_scientific_name = replace(national_scientific_name, display_taxonname == "No", NA),
@@ -661,27 +666,63 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
       select(-count) %>%
       distinct()
     
-          # Compute extra disclaimer
-                # English
-    extraDisclaimer_EN <- globalNotAccepted_triggers %>%
-      mutate(text = ifelse(is.na(national_scientific_name),
-                           national_engl_name,
-                           paste0(national_engl_name, " (<i>", national_scientific_name, "</i>)"))) %>%
-      arrange(text) %>%
-      pull(text) %>%
-      {paste0("<p>The following taxa are being reviewed at the global level: ", paste0(., collapse="; "), ". Once accepted, this site will become a global KBA.</p>")}
-      
-                # French
-    extraDisclaimer_FR <- globalNotAccepted_triggers %>%
-      mutate(text = ifelse(is.na(national_fr_name),
-                           paste0("<i>", national_scientific_name, "</i>"),
-                           ifelse(is.na(national_scientific_name),
-                                  national_fr_name,
-                                  paste0(national_fr_name, " (<i>", national_scientific_name, "</i>)")))) %>%
-      arrange(text) %>%
-      pull(text) %>%
-      {paste0("<p>Les taxons suivants font l'objet d'un examen au niveau mondial : ", paste0(., collapse="; "), ". Une fois cette évaluation validée, le site deviendra une KBA mondiale.</p>")}
-  
+                # Compute extra disclaimer
+                      # English
+    if(nrow(globalNotAccepted_species) > 0){
+      extraDisclaimer_EN <- globalNotAccepted_species %>%
+        mutate(text = ifelse(is.na(national_scientific_name),
+                             national_engl_name,
+                             paste0(national_engl_name, " (<i>", national_scientific_name, "</i>)"))) %>%
+        arrange(text) %>%
+        pull(text) %>%
+        {paste0(extraDisclaimer_EN, "The following taxa are being reviewed at the global level: ", paste0(., collapse="; "), ". ")}
+    }
+    
+                        # French
+      if(nrow(globalNotAccepted_species) > 0){
+      extraDisclaimer_FR <- globalNotAccepted_species %>%
+        mutate(text = ifelse(is.na(national_fr_name),
+                             paste0("<i>", national_scientific_name, "</i>"),
+                             ifelse(is.na(national_scientific_name),
+                                    national_fr_name,
+                                    paste0(national_fr_name, " (<i>", national_scientific_name, "</i>)")))) %>%
+        arrange(text) %>%
+        pull(text) %>%
+        {paste0(extraDisclaimer_FR, "Les taxons suivants font l'objet d'un examen au niveau mondial : ", paste0(., collapse="; "), ". ")}
+    }
+    
+          # Ecosystems
+                # Get global ecosystems
+    globalNotAccepted_ecosystems <- DBS_EcosystemAtSite %>%
+      filter(!is.na(globalcriteria)) %>%
+      left_join(., DBS_BIOTICS_ECOSYSTEM[,c("ecosystemid", "cnvc_english_name", "cnvc_french_name")], by="ecosystemid") %>%
+      select(cnvc_english_name, cnvc_french_name) %>%
+      distinct()
+    
+                # Compute extra disclaimer
+                      # English
+    if(nrow(globalNotAccepted_ecosystems) > 0){
+      extraDisclaimer_EN <- globalNotAccepted_ecosystems %>%
+        arrange(cnvc_english_name) %>%
+        pull(cnvc_english_name) %>%
+        {paste0(extraDisclaimer_EN, "The following ecosystems are being reviewed at the global level: ", paste0(., collapse="; "), ". ")}
+    }
+    
+                      # French
+    if(nrow(globalNotAccepted_ecosystems) > 0){
+      extraDisclaimer_FR <- globalNotAccepted_ecosystems %>%
+        mutate(text = ifelse(is.na(cnvc_french_name),
+                             cnvc_english_name,
+                             cnvc_french_name)) %>%
+        arrange(text) %>%
+        pull(text) %>%
+        {paste0(extraDisclaimer_FR, "Les écosystèmes suivants font l'objet d'un examen au niveau mondial : ", paste0(., collapse="; "), ". ")}
+    }
+    
+          # Finalize disclaimer
+    extraDisclaimer_EN <- paste0(extraDisclaimer_EN, "Once accepted, this site will become a global KBA.</p>")
+    extraDisclaimer_FR <- paste0(extraDisclaimer_FR, "Une fois cette évaluation validée, le site deviendra une KBA mondiale.</p>")
+    
           # Add to site disclaimer
     DBS_KBASite %<>%
       mutate(disclaimer_en = paste0(extraDisclaimer_EN, disclaimer_en),
@@ -1094,10 +1135,9 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
                                              .default = Original_ScientificNameEN),
            Original_ScientificNameFR=case_when(is.na(Original_ScientificNameFR)~ivc_formatted_scientific_name_fr,
                                            .default = Original_ScientificNameFR),
-           Original_TypeFR=case_when(is.na(Original_TypeFR) & is.na(cnvc_french_name)~ivc_name_fr,
-                                     is.na(Original_TypeFR) ~ cnvc_french_name,
+           Original_TypeFR=case_when(is.na(Original_TypeFR) ~ cnvc_french_name,
                                            .default = Original_TypeFR),
-           Original_TypeEN=case_when(is.na(Original_TypeEN)~cnvc_english_name,
+           Original_TypeEN=case_when(is.na(Original_TypeEN) ~ cnvc_english_name,
                                            .default = Original_TypeEN))%>%
     select(all_of(colnames(REG_KBA_EcosystemAssessments)))
   
