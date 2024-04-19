@@ -57,7 +57,7 @@ COSEWICLinks <- read.xlsx("COSEWIC_Links.xlsx")
 
 # KBA-EBAR database information
 Sys.sleep(20)
-read_KBAEBARDatabase(datasetNames=c("DatasetSource", "InputDataset", "ECCCRangeMap", "RangeMap", "EmptyRangeMap"),
+read_KBAEBARDatabase(datasetNames=c("DatasetSource", "InputDataset", "ECCCRangeMap", 'COSEWICRangeMap', "RangeMap", "EmptyRangeMap"),
                      type="exclude",
                      account="kbapipeline",
                      epsg=4326) %>%
