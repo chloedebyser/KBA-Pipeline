@@ -57,7 +57,7 @@ COSEWICLinks <- read.xlsx("COSEWIC_Links.xlsx")
 
 # KBA-EBAR database information
 Sys.sleep(20)
-read_KBAEBARDatabase(datasetNames=c("DatasetSource", "InputDataset", "ECCCRangeMap", 'COSEWICRangeMap', "RangeMap", "EmptyRangeMap"),
+read_KBAEBARDatabase(datasetNames=c("DatasetSource", "InputDataset", "ECCCRangeMap", 'COSEWICRangeMap', "RangeMap", "EmptyRangeMap", "EBARMap"),
                      type="exclude",
                      account="kbapipeline",
                      epsg=4326) %>%
@@ -996,6 +996,9 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     filter(!is.na(SpeciesID)) %>%
     left_join(., crosswalk_SpeciesID[,c("REG_SpeciesID", "DB_SpeciesID")], by=c("SpeciesID" = "REG_SpeciesID")) %>%
     filter(DB_SpeciesID %in% DBS_SpeciesAtSite$speciesid) %>%
+    mutate(NationalPopulationSize = as.integer(NationalPopulationSize),
+           ContinentalPopulationSize = as.integer(ContinentalPopulationSize),
+           GlobalPopulationSize = as.integer(GlobalPopulationSize)) %>%
     select(all_of(colnames(REG_Species)))
   
   # Species_Citation
