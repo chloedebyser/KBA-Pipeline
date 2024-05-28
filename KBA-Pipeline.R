@@ -299,7 +299,6 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
          ScientificName_FR = ivc_scientific_name_fr,
          ScientificName_FR_HTML = ivc_formatted_scientific_name_fr,
          EcosystemType_EN = cnvc_english_name,
-         EcosystemType_FR = cnvc_french_name,
          EcosystemLevel = classification_level_name,
          Biome_EN = biome_name,
          Biome_FR = biome_name_fr,
@@ -320,7 +319,8 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
          WDKBAEcoRecID = wdkbaid,
          IUCNAssessmentDate = iucn_assessmentdate,
          IUCNStatusCriteria = iucn_criteria) %>%
-  mutate(Macrogroup_FR = ifelse(is.na(cnvc_mg_frenchname), ivc_mg_name_fr, cnvc_mg_frenchname),
+  mutate(EcosystemType_FR = ifelse(is.na(cnvc_french_name), ivc_name_fr, cnvc_french_name),
+         Macrogroup_FR = ifelse(is.na(cnvc_mg_frenchname), ivc_mg_name_fr, cnvc_mg_frenchname),
          Group_FR = ifelse(is.na(cnvc_group_frenchname), ivc_group_name_fr, cnvc_group_frenchname),
          IUCNLink = ifelse(ecosystemid == 113, "https://assessments.iucnrle.org/assessments/12", NA),
          iucn_cd = ifelse(is.na(iucn_cd), "NE", iucn_cd)) %>%
