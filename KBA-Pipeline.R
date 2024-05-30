@@ -57,8 +57,8 @@ COSEWICLinks <- read.xlsx("COSEWIC_Links.xlsx")
 
 # KBA-EBAR database information
 Sys.sleep(20)
-read_KBAEBARDatabase(datasetNames=c("DatasetSource", "InputDataset", "ECCCRangeMap", 'COSEWICRangeMap', "RangeMap", "EmptyRangeMap", "EBARMap"),
-                     type="exclude",
+read_KBAEBARDatabase(datasetNames=c("KBASite", "SpeciesAtSite", "Species", 'BIOTICS_ELEMENT_NATIONAL', "SpeciesAssessment", "PopSizeCitation", "EcosystemAtSite", "Ecosystem", "BIOTICS_ECOSYSTEM", "EcosystemAssessment", "ExtentCitation", "KBACitation", "KBAThreat", "KBAAction", "KBALandCover", "KBAProtectedArea", "OriginalDelineation", "BiodivElementDistribution", "KBACustomPolygon", "KBAInputPolygon"),
+                     type="include",
                      account="kbapipeline",
                      epsg=4326) %>%
   suppressWarnings()
@@ -531,19 +531,6 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   # Check whether site should be processed in the current pipeline run
   processSite <- (overall_last_edited_date <= DBS_KBASite$confirmdate) & (!addition_deletion) & (overall_last_edited_date >= lastPipelineRun)
-  
-  # TEMP - Stop ecosystem sites from being processed in the production environment until UI is ready (TO DO: Remove once UI is ready)
-  if(docker_env=="Production"){
-    
-    if(nrow(DBS_EcosystemAtSite) > 0){
-      processSite <- F
-    }
-  }else{
-    
-    if(DBS_KBASite$sitestatus == 10){
-      processSite <- T
-    }
-  }
   
   # TEMP - Stop 5 bird sites from being processed in the production environment until proposal forms are ready (TO DO: Remove once proposal forms are ready)
   if(docker_env=="Production"){
