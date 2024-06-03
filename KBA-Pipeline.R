@@ -735,7 +735,12 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
         mutate(newid = (maxSensitiveSpeciesID+1):(maxSensitiveSpeciesID+nrow(.))) %>%
         left_join(., DBS_BIOTICS_ELEMENT_NATIONAL[, c("speciesid", "kba_group")], by="speciesid") %>%
         mutate(display_alternativegroup = ifelse(display_taxonomicgroup == "No", "Sensitive Species", kba_group),
-               display_alternativename = str_to_sentence(display_alternativename))
+               display_alternativename = str_to_sentence(display_alternativename)) %>%
+        mutate(display_alternativename = ifelse(display_alternativename == "Une espèce sensible",
+                                                "A sensitive species",
+                                                ifelse(display_alternativename == "Une espèce en péril",
+                                                       "A species at risk",
+                                                       display_alternativename)))
       
       # Update all relevant datasets
             # SpeciesAtSite
@@ -955,7 +960,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   REGS_KBA_Habitat <- DBS_KBALandCover %>%
     mutate(SiteID = REG_siteID,
            HabitatSiteID = ifelse(nrow(.)>0, 1:nrow(.), 1),
-           landcover_en = ifelse(landcover_en == "Urban and built-up", "Urban", landcover_en)) %>%
+           landcover_en = as.character(ifelse(landcover_en == "Urban and built-up", "Urban", landcover_en))) %>%
     rename(HabitatArea = areakm2,
            PercentCover = percentcover) %>%
     left_join(., REG_Habitat[,c("HabitatID", "Habitat_EN")], by=c("landcover_en" = "Habitat_EN")) %>%
@@ -1345,7 +1350,6 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     arrange(SiteID,SpeciesID) %>% 
     mutate(AssessmentSubcriterionID=if(n()>0) 1:n() else 0)%>% 
     group_by(SiteID,SpeciesID,SpeciesStatus,DateAssessed,PercentAtSite,SeasonalDistribution,MinSitePopulation,BestSitePopulation,MaxSitePopulation,SiteDerivation,MinRefPopulation,BestRefPopulation,MaxRefPopulation,SitePopulationSources,RefPopulationSources,AssessmentParameterID,MinReproductiveUnits,RUType,RUSources,FootnoteID,InternalBoundaryID) %>% mutate(SpeciesAssessmentsID=if(n()>0) cur_group_id() else 0) %>% ungroup()
-  
   
   New_SpeciesAssessment_Subcriterion <- New_SpeciesAssessment %>%
     select(all_of(names(REG_SpeciesAssessment_Subcriterion))) %>%
