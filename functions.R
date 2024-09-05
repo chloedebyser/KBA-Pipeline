@@ -427,8 +427,8 @@ create.shapefile <- function(registryDB,path="Shapefile",sitecodes=c()){
     left_join(Species %>% 
                 select(SpeciesID,ScientificName,CommonName_EN,CommonName_FR,Subspecies_EN,Subspecies_FR,Population_EN,Population_FR),by="SpeciesID") %>%
     rowwise %>%
-    mutate(CommonName_EN=paste0(na.omit(c(paste0(na.omit(c(CommonName_EN,Subspecies_EN)),collapse = " "),Population_EN),collapse=" - ")),
-           CommonName_FR=paste0(na.omit(c(paste0(na.omit(c(CommonName_FR,Subspecies_FR)),collapse = " "),Population_FR),collapse=" - "))) %>% ungroup() %>% select(-Subspecies_EN,-Subspecies_FR,-Population_EN,-Population_FR) %>%
+    mutate(CommonName_EN=paste0(na.omit(c(paste0(na.omit(c(CommonName_EN,Subspecies_EN)),collapse = " "),Population_EN)),collapse=" - "),
+           CommonName_FR=paste0(na.omit(c(paste0(na.omit(c(CommonName_FR,Subspecies_FR)),collapse = " "),Population_FR)),collapse=" - ")) %>% ungroup() %>% select(-Subspecies_EN,-Subspecies_FR,-Population_EN,-Population_FR) %>%
     replace(.=="",NA)
   InternalSpecies <- KBA_SpeciesAssessment %>% select(InternalBoundaryID,CommonName_EN,CommonName_FR,ScientificName)
   
