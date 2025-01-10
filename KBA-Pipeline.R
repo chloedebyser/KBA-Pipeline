@@ -33,7 +33,7 @@ source("functions.R")
 lastPipelineRun <- readRDS("lastPipelineRun.RDS")
 
 # Environment variables 
-env_vars <- c("kbapipeline_pswd", "postgres_user", "postgres_pass", "database_name", "database_host", "mailtrap_pass", "database_port","geoserver_pass","docker_env")
+env_vars <- c("kbapipeline_pswd", "postgres_user", "postgres_pass", "database_name", "database_host", "mailtrap_pass", "database_port", "geoserver_pass", "docker_env")
 
 for(env in env_vars){
   
@@ -56,12 +56,28 @@ crs <- readRDS("crs.RDS")
 COSEWICLinks <- read.xlsx("COSEWIC_Links.xlsx")
 
 # KBA-EBAR database information
+databaseAttempt <- 1
+
+while(databaseAttempt <= 5){
+  
+tryCatch({
 Sys.sleep(20)
 read_KBAEBARDatabase(datasetNames=c("KBASite", "SpeciesAtSite", "Species", 'BIOTICS_ELEMENT_NATIONAL', "SpeciesAssessment", "PopSizeCitation", "EcosystemAtSite", "Ecosystem", "BIOTICS_ECOSYSTEM", "EcosystemAssessment", "ExtentCitation", "KBACitation", "KBAThreat", "KBAAction", "KBALandCover", "KBAProtectedArea", "OriginalDelineation", "BiodivElementDistribution", "KBACustomPolygon", "KBAInputPolygon"),
                      type="include",
                      account="kbapipeline",
                      epsg=4326) %>%
   suppressWarnings()
+break
+},
+
+error=function(cond){databaseAttempt <<- databaseAttempt + 1})
+  
+if(databaseAttempt <= 5){
+  message(paste("Reading KBA-EBAR Database succeeded after", databaseAttempt, "attempt(s)."))
+  
+}else{
+  stop("Reading KBA-EBAR Database unsuccessful after 5 attempts.")
+}
 
 # KBA Registry database information
       # Registry database connection
