@@ -71,7 +71,8 @@ break
 },
 
 error=function(cond){databaseAttempt <<- databaseAttempt + 1})
-  
+}
+ 
 if(databaseAttempt <= 5){
   message(paste("Reading KBA-EBAR Database succeeded after", databaseAttempt, "attempt(s)."))
   
