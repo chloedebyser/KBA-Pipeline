@@ -1645,7 +1645,7 @@ if(nrow(siteNotifications) > 0){
     }
     
     # Vector of emails to notify
-    notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org","acouturier@bsc-eoc.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org", "aleung@wcs.org", "jreid@wcs.org") %>%
+    notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org","acouturier@bsc-eoc.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org", "aleung@wcs.org", "dbrowne@birdscanada.org") %>%
       c(., trimws(unlist(strsplit(siteNotificationsNew$leademail, ";")))) %>%
       unique()
     
@@ -1679,15 +1679,17 @@ if(nrow(siteNotifications) > 0){
   
   # If existing sites were modified
   if(nrow(siteNotificationsEdit) > 0){
+    
     notificationMessage <- ""
+    
     if(siteNotificationsEdit %>% filter(type == "Site edit") %>% nrow(.) > 0){
+      
     # Generate text information about every site
     siteNotificationsEdit %<>%
       arrange(sitename) %>%
       mutate(text = paste0("&emsp;&bull; ", sitename, " (", jurisdiction, "): https://kbacanada.org/site/?SiteCode=", sitecode))
     
     # Body of email
-    
     notificationMessage <- paste0(notificationMessage,
                                   "<br><br>The following sites were modified on the Registry:<br>",
                                   paste(siteNotificationsEdit %>% filter(type == "Site edit") %>% pull(text), collapse="<br>"),
@@ -1695,13 +1697,13 @@ if(nrow(siteNotifications) > 0){
     
     }
     if(siteNotificationsEdit %>% filter(type == "Site deletion") %>% nrow(.) > 0){
+      
       # Generate text information about every site
       siteNotificationsEdit %<>%
         arrange(sitename) %>%
         mutate(text = paste0("&emsp;&bull; ", sitename, " (", jurisdiction, ")"))
       
       # Body of email
-      
       notificationMessage <- paste0(notificationMessage,
                                     "<br><br>The following sites were deleted from the Registry:<br>",
                                     paste(siteNotificationsEdit %>% filter(type == "Site deletion") %>% pull(text), collapse="<br>"),
@@ -1710,7 +1712,7 @@ if(nrow(siteNotifications) > 0){
     }
     
     # Vector of emails to notify
-    notificationEmails <-  c("devans@birdscanada.org", "cdebyser@wcs.org")
+    notificationEmails <-  c("devans@birdscanada.org", "cdebyser@wcs.org", "abichel@birdscanada.org")
     
     # Send email
     pipeline.email(to = notificationEmails,
