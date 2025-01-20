@@ -142,7 +142,12 @@ Bird_Species <- fromJSON("https://kba-maps.deanrobertevans.ca/api/species") %>%
          BirdAlphaCode=birdalphacode,
          BCSpeciesID=bcspeciesid,
          NationalTrend=nationaltrend,
-         CitationNationalTrend=nationaltrendreference)
+         CitationNationalTrend=nationaltrendreference) %>%
+  mutate(NationalTrend_FR = case_when(NationalTrend == "Increasing" ~ "En augmentation",
+                                      NationalTrend == "Decreasing"  ~ "En diminution",
+                                      NationalTrend == "Stable" ~ "Stable",
+                                      NationalTrend == "Unknown" ~ "Inconnue",
+                                      .default = NA))
 
 # Create initial dataframe
 REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
@@ -178,7 +183,9 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          NSNRankReviewDate = n_rank_review_date,
          NSLink = nsx_url) %>%
   left_join(., Bird_Species, by="NSElementCode") %>%
-  mutate(Subspecies_EN = NA,
+  mutate(NationalName_EN = CommonName_EN,
+         NationalName_FR = CommonName_FR,
+         Subspecies_EN = NA,
          Subspecies_FR = NA,
          Population_EN = NA,
          Population_FR = NA,
@@ -197,7 +204,12 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
                                                 "P",
                                                 endemism)))),
          iucn_cd = ifelse(is.na(iucn_cd), "NE", iucn_cd),
-         cosewic_status = ifelse(is.na(cosewic_status) | (cosewic_status == "Non-active/Nonactive"), "NA", cosewic_status)) %>%
+         cosewic_status = ifelse(is.na(cosewic_status) | (cosewic_status == "Non-active/Nonactive"), "NA", cosewic_status),
+         IUCNPopulationTrend_FR = case_when(IUCNPopulationTrend == "Increasing" ~ "En augmentation",
+                                            IUCNPopulationTrend == "Decreasing"  ~ "En diminution",
+                                            IUCNPopulationTrend == "Stable" ~ "Stable",
+                                            IUCNPopulationTrend == "Unknown" ~ "Inconnue",
+                                            .default = NA)) %>%
   left_join(., REG_IUCNStatus, by=c("iucn_cd" = "Nomenclature")) %>%
   left_join(., REG_COSEWICStatus, by=c("cosewic_status" = "Nomenclature")) %>%
   left_join(., COSEWICLinks[,c("ELEMENT_NATIONAL_ID", "Link")], by=c("element_national_id" = "ELEMENT_NATIONAL_ID")) %>%
@@ -340,7 +352,9 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
          Macrogroup_FR = ifelse(is.na(cnvc_mg_frenchname), ivc_mg_name_fr, cnvc_mg_frenchname),
          Group_FR = ifelse(is.na(cnvc_group_frenchname), ivc_group_name_fr, cnvc_group_frenchname),
          IUCNLink = ifelse(ecosystemid == 113, "https://assessments.iucnrle.org/assessments/12", NA),
-         iucn_cd = ifelse(is.na(iucn_cd), "NE", iucn_cd)) %>%
+         iucn_cd = ifelse(is.na(iucn_cd), "NE", iucn_cd),
+         EcosystemLevel_FR = case_when(EcosystemLevel == "Group" ~ "Groupe",
+                                       .default = EcosystemLevel)) %>%
   left_join(., REG_IUCNStatus, by=c("iucn_cd" = "Nomenclature")) %>%
   left_join(., REG_Ecosystem_Category[,c("EcosystemCategoryID", "CategoryName_EN")], by=c("kba_group" = "CategoryName_EN"))
 
@@ -917,7 +931,9 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            Conservation_EN = ifelse(Conservation_EN == "<p>None</p>", "<p>There are no known conservation actions at this site.</p>", Conservation_EN),
            Conservation_FR = ifelse(Conservation_FR %in% c("<p>Aucun</p>", "<p>Aucune</p>"), "<p>Le site ne bénificie d'aucune action de conservation connue.</p>", Conservation_FR),
            ObsoleteReason_EN = ObsoleteReason_EN,
-           ObsoleteReason_FR = ObsoleteReason_FR) %>%
+           ObsoleteReason_FR = ObsoleteReason_FR,
+           eBirdLink = NA,
+           iNatLink = NA) %>%
     select(all_of(colnames(REG_KBA_Website)))
   
   # KBA_Citation
@@ -1055,9 +1071,26 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            InternalBoundaryID = biodivelementdistributionid) %>%
     mutate(SiteID = REG_siteID,
            SpeciesStatus = ifelse(is.na(status_value), NA, paste0(status_value, " (", status_assessmentagency, ")")) %>% as.character(),
+           status_assessmentagency_FR = case_when(status_assessmentagency == "IUCN" ~ "UICN",
+                                                  status_assessmentagency == "COSEWIC" ~ "COSEPAC",
+                                                  status_assessmentagency == "NatureServe" ~ "NatureServe",
+                                                  .default = NA),
+           status_value_FR = case_when(status_value == "X" ~ "D",
+                                       status_value == "XT" ~ "DP"
+                                       status_value == "E" ~ "VD",
+                                       status_value == "T" ~ "M",
+                                       status_value == "SC" ~ "P",
+                                       satus_value == "DD" ~ "DI",
+                                       status_value == "NAR" ~ "NEP",
+                                       .default = status_value),
+           SpeciesStatus_FR = ifelse(is.na(status_value_FR), NA, paste0(status_value_FR, " (", status_assessmentagency_FR, ")")) %>% as.character(),
            FootnoteID = NA,
            AssessmentParameter_EN = sapply(assessmentparameter, function(x) str_to_sentence(substr(x, start=gregexpr(")", x, fixed=T)[[1]][1]+2, stop=nchar(x)))),
-           AssessmentParameter_EN = as.character(AssessmentParameter_EN)) %>%
+           AssessmentParameter_EN = as.character(AssessmentParameter_EN),
+           SeasonalDistribution_FR = case_when(SeasonalDistribution == "Migration site" ~ "Site de migration",
+                                               SeasonalDistribution == "Breeding" ~ "Site de reproduction",
+                                               SeasonalDistribution == "Non-breeding" ~ "Site non reproducteur",
+                                               .default = SeasonalDistribution)) %>%
     left_join(., REG_AssessmentParameter[,c("AssessmentParameterID", "AssessmentParameter_EN")], by="AssessmentParameter_EN") %>%
     left_join(.,REG_KBA_SpeciesAssessments %>% 
                 select(SpeciesID,SiteID,DateAssessed,Original_ScientificName,Original_CommonNameFR, Original_CommonNameEN) %>% distinct(),
@@ -1131,6 +1164,11 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            InternalBoundaryID = biodivelementdistributionid) %>%
     mutate(SiteID = REG_siteID,
            EcosystemStatus = ifelse(is.na(status_value), NA, paste0(status_value, " (", status_assessmentagency, ")")) %>% as.character(),
+           status_assessmentagency_FR = case_when(status_assessmentagency == "IUCN" ~ "UICN",
+                                                  status_assessmentagency == "COSEWIC" ~ "COSEPAC",
+                                                  status_assessmentagency == "NatureServe" ~ "NatureServe",
+                                                  .default = NA),
+           EcosystemStatus_FR = ifelse(is.na(status_value), NA, paste0(status_value, " (", status_assessmentagency_FR, ")")) %>% as.character(),
            FootnoteID = NA) %>%
     left_join(.,REG_KBA_EcosystemAssessments %>% 
                 select(SiteID,EcosystemID,DateAssessed,
