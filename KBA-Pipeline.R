@@ -1076,11 +1076,11 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
                                                   status_assessmentagency == "NatureServe" ~ "NatureServe",
                                                   .default = NA),
            status_value_FR = case_when(status_value == "X" ~ "D",
-                                       status_value == "XT" ~ "DP"
+                                       status_value == "XT" ~ "DP",
                                        status_value == "E" ~ "VD",
                                        status_value == "T" ~ "M",
                                        status_value == "SC" ~ "P",
-                                       satus_value == "DD" ~ "DI",
+                                       status_value == "DD" ~ "DI",
                                        status_value == "NAR" ~ "NEP",
                                        .default = status_value),
            SpeciesStatus_FR = ifelse(is.na(status_value_FR), NA, paste0(status_value_FR, " (", status_assessmentagency_FR, ")")) %>% as.character(),
