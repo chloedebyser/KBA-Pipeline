@@ -348,7 +348,10 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
          WDKBAEcoRecID = wdkbaid,
          IUCNAssessmentDate = iucn_assessmentdate,
          IUCNStatusCriteria = iucn_criteria) %>%
-  mutate(EcosystemType_FR = ifelse(is.na(cnvc_french_name), ivc_name_fr, cnvc_french_name),
+  mutate(EcosystemClassificationSystem_FR = case_when(EcosystemClassificationSystem == "International Vegetation Classification Hierarchy" ~ "Hiérarchie de la classification internationale de la végétation",
+                                                      EcosystemClassificationSystem == "Canadian National Vegetation Classification" ~ "Classification nationale de la végétation du Canada",
+                                                      .default = NA),
+         EcosystemType_FR = ifelse(is.na(cnvc_french_name), ivc_name_fr, cnvc_french_name),
          Macrogroup_FR = ifelse(is.na(cnvc_mg_frenchname), ivc_mg_name_fr, cnvc_mg_frenchname),
          Group_FR = ifelse(is.na(cnvc_group_frenchname), ivc_group_name_fr, cnvc_group_frenchname),
          IUCNLink = ifelse(ecosystemid == 113, "https://assessments.iucnrle.org/assessments/12", NA),
