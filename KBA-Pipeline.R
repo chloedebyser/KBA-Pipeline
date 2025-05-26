@@ -1005,14 +1005,28 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # KBA_ProtectedArea
   REGS_KBA_ProtectedArea <- DBS_KBAProtectedArea %>%
     mutate(ProtectedAreaID = ifelse(nrow(.)>0, 1:nrow(.), 1),
-           SiteID = REG_siteID) %>%
+           SiteID = REG_siteID,
+           IUCNCat_EN = case_when(iucncat_en == "Ia" ~ "Ia - Strict nature reserve",
+                                  iucncat_en == "Ib" ~ "Ib - Wilderness area",
+                                  iucncat_en == "II" ~ "II - National park",
+                                  iucncat_en == "III" ~ "III - Natural monument or feature",
+                                  iucncat_en == "IV" ~ "IV - Habitat/species management area",
+                                  iucncat_en == "V" ~ "V - Protected landscape or seascape",
+                                  iucncat_en == "VI" ~ "VI - Protected areas with sustainable use of natural resources",
+                                  .default = iucncat_en),
+           IUCNCat_FR = case_when(iucncat_fr == "Ia" ~ "Ia - Réserve naturelle intégrale",
+                                  iucncat_fr == "Ib" ~ "Ib - Zone de nature sauvage",
+                                  iucncat_fr == "II" ~ "II - Parc national",
+                                  iucncat_fr == "III" ~ "III - Monument ou élément naturel",
+                                  iucncat_fr == "IV" ~ "IV - Aire de gestion des habitats ou des espèces",
+                                  iucncat_fr == "V" ~ "V - Paysage terrestre ou marin protégé",
+                                  iucncat_fr == "VI" ~ "VI - Aire protégée avec utilisation durable des ressources naturelles",
+                                  .default = iucncat_fr)) %>%
     rename(PercentCover = percentcover,
            ProtectedArea_EN = protectedarea_en,
            ProtectedArea_FR = protectedarea_fr,
            Type_EN = type_en,
-           Type_FR = type_fr,
-           IUCNCat_EN = iucncat_en,
-           IUCNCat_FR = iucncat_fr) %>%
+           Type_FR = type_fr) %>%
     select(all_of(colnames(REG_KBA_ProtectedArea)))
   
   if(DBS_KBASite$boundarygeneralization == "3"){ # If boundary generalization = 3, do not send protected area information
