@@ -209,7 +209,11 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
                                             IUCNPopulationTrend == "Decreasing"  ~ "En diminution",
                                             IUCNPopulationTrend == "Stable" ~ "Stable",
                                             IUCNPopulationTrend == "Unknown" ~ "Inconnue",
-                                            .default = NA)) %>%
+                                            .default = NA),
+         NSGRank_Precautionary = ifelse(is.na(precautionary_g_rank), ifelse(ca_nname_level == "Species", "GNR", "TNR"), precautionary_g_rank)) %>%
+  rowwise() %>%
+  mutate(NSNRank_Precautionary = ifelse(is.na(precautionary_n_rank), ifelse(is.na(NSNRank), "NNR", c(precautionary_n_rank_breeding, precautionary_n_rank_nonbreed, precautionary_n_rank_migrant)[order(match(c(precautionary_n_rank_breeding, precautionary_n_rank_nonbreed, precautionary_n_rank_migrant), c("NU", "NNR", "N1", "N2", "N3", "N4", "N5", "NH", "NX", "NNA")))][1]), precautionary_n_rank)) %>%
+  ungroup() %>%
   left_join(., REG_IUCNStatus, by=c("iucn_cd" = "Nomenclature")) %>%
   left_join(., REG_COSEWICStatus, by=c("cosewic_status" = "Nomenclature")) %>%
   left_join(., COSEWICLinks[,c("ELEMENT_NATIONAL_ID", "Link")], by=c("element_national_id" = "ELEMENT_NATIONAL_ID")) %>%
@@ -357,7 +361,9 @@ REGA_Ecosystem <- DB_BIOTICS_ECOSYSTEM %>%
          IUCNLink = ifelse(ecosystemid == 113, "https://assessments.iucnrle.org/assessments/12", NA),
          iucn_cd = ifelse(is.na(iucn_cd), "NE", iucn_cd),
          EcosystemLevel_FR = case_when(EcosystemLevel == "Group" ~ "Groupe",
-                                       .default = EcosystemLevel)) %>%
+                                       .default = EcosystemLevel),
+         NSGRank_Precautionary = ifelse(is.na(precautionary_g_rank), "GNR", precautionary_g_rank),
+         NSNRank_Precautionary = ifelse(is.na(precautionary_n_rank), "NNR", precautionary_n_rank)) %>%
   left_join(., REG_IUCNStatus, by=c("iucn_cd" = "Nomenclature")) %>%
   left_join(., REG_Ecosystem_Category[,c("EcosystemCategoryID", "CategoryName_EN")], by=c("kba_group" = "CategoryName_EN"))
 
@@ -793,7 +799,17 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
                                               "Une espèce en péril",
                                               NA)),
                 InformalTaxonomicGroup = sensitiveSpecies_new$display_alternativegroup,
-                Sensitive = 1)
+                Sensitive = 1) %>%
+        mutate(InformalTaxonomicGroup_FR = case_when(InformalTaxonomicGroup == "Amphibians and Reptiles" ~ "Amphibiens et reptiles",
+                                                     InformalTaxonomicGroup == "Birds" ~ "Oiseaux",
+                                                     InformalTaxonomicGroup == "Fishes" ~ "Poissons",
+                                                     InformalTaxonomicGroup == "Fungi and Lichens" ~ "Champignons et lichens",
+                                                     InformalTaxonomicGroup == "Invertebrates" ~ "Invertébrés",
+                                                     InformalTaxonomicGroup == "Mammals" ~ "Mammifères",
+                                                     InformalTaxonomicGroup == "Nonvascular Plants" ~ "Plantes non vasculaires",
+                                                     InformalTaxonomicGroup == "Vascular Plants" ~ "Plantes vasculaires",
+                                                     InformalTaxonomicGroup == "Sensitive Species" ~ "Espèces sensibles",
+                                                     .default = NA))
       
             # crosswalk_SpeciesID
       crosswalk_SpeciesID %<>%
@@ -996,9 +1012,11 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   REGS_KBA_Habitat <- DBS_KBALandCover %>%
     mutate(SiteID = REG_siteID,
            HabitatSiteID = ifelse(nrow(.)>0, 1:nrow(.), 1),
-           landcover_en = as.character(ifelse(landcover_en == "Urban and built-up", "Urban", landcover_en))) %>%
+           landcover_en = as.character(landcover_en)) %>%
     rename(HabitatArea = areakm2,
-           PercentCover = percentcover) %>%
+           PercentCover = percentcover,
+           Group_EN = group_en,
+           Group_FR = group_fr) %>%
     left_join(., REG_Habitat[,c("HabitatID", "Habitat_EN")], by=c("landcover_en" = "Habitat_EN")) %>%
     select(all_of(colnames(REG_KBA_Habitat)))
   
@@ -1006,16 +1024,16 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   REGS_KBA_ProtectedArea <- DBS_KBAProtectedArea %>%
     mutate(ProtectedAreaID = ifelse(nrow(.)>0, 1:nrow(.), 1),
            SiteID = REG_siteID,
-           IUCNCat_EN = case_when(iucncat_en == "Ia" ~ "Ia - Strict nature reserve",
-                                  iucncat_en == "Ib" ~ "Ib - Wilderness area",
+           IUCNCat_EN = case_when(iucncat_en %in% c("Ia", "IA") ~ "Ia - Strict nature reserve",
+                                  iucncat_en %in% c("Ib", "IB") ~ "Ib - Wilderness area",
                                   iucncat_en == "II" ~ "II - National park",
                                   iucncat_en == "III" ~ "III - Natural monument or feature",
                                   iucncat_en == "IV" ~ "IV - Habitat/species management area",
                                   iucncat_en == "V" ~ "V - Protected landscape or seascape",
                                   iucncat_en == "VI" ~ "VI - Protected areas with sustainable use of natural resources",
                                   .default = iucncat_en),
-           IUCNCat_FR = case_when(iucncat_fr == "Ia" ~ "Ia - Réserve naturelle intégrale",
-                                  iucncat_fr == "Ib" ~ "Ib - Zone de nature sauvage",
+           IUCNCat_FR = case_when(iucncat_fr %in% c("Ia", "IA") ~ "Ia - Réserve naturelle intégrale",
+                                  iucncat_fr %in% c("Ib", "IB") ~ "Ib - Zone de nature sauvage",
                                   iucncat_fr == "II" ~ "II - Parc national",
                                   iucncat_fr == "III" ~ "III - Monument ou élément naturel",
                                   iucncat_fr == "IV" ~ "IV - Aire de gestion des habitats ou des espèces",
