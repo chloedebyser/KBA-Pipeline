@@ -129,7 +129,7 @@ rm(i)
 # Check if backup date is greater than last pipeline run
 backupdate <- REG_BackupDate %>% filter(datetime==max(datetime)) %>% pull(datetime) %>% force_tz(.,tzone="Canada/Eastern")
 
-# Force error if backup has not occured since the last pipeline run
+# Force error if backup has not occurred since the last pipeline run
 if(backupdate < lastPipelineRun){
   stop("There has not been a backup since the last pipeline run. Please check if backups are still working.")
 }
@@ -534,7 +534,50 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     }else{
       
       if(docker_env == "Production"){
-        stop("Site is obsolete, but ObsoleteReason text has not been specified.")
+        
+        # Get all accepted sites other than the focal site
+        otherAcceptedSites <- DB_KBASite %>%
+          filter(!kbasiteid == id, sitestatus %in% 6:8) %>%
+          filter(!year(confirmdate) == 1900) %>% # Only retain confirmed sites
+          st_make_valid()
+        
+        # Get accepted sites that intersect the focal site
+        replacementSite <- otherAcceptedSites[unlist(st_intersects(DBS_KBASite, otherAcceptedSites)[[1]]),]
+        
+        # Check that there is exactly one accepted site intersecting the focal site
+        if(!nrow(replacementSite) == 1){
+          stop("Site is obsolete and replacement site was not found.")
+        }
+        
+        # Compute obsolete reason
+        ObsoleteReason_EN <- paste0(DBS_KBASite$nationalname,
+                                    " KBA (",
+                                    DBS_KBASite$sitecode,
+                                    ") has been incorporated into another KBA (",
+                                    replacementSite$nationalname,
+                                    " - ",
+                                    replacementSite$sitecode,
+                                    ") and is no longer a standalone KBA. Click <a href='https://kbacanada.org/site/?SiteCode=",
+                                    replacementSite$sitecode,
+                                    "'>here</a>",
+                                    " for more information about the ",
+                                    replacementSite$nationalname,
+                                    " KBA.")
+        
+        ObsoleteReason_FR <- paste0("La KBA de ",
+                                    ifelse(is.na(DBS_KBASite$nationalname_fr), DBS_KBASite$nationalname, DBS_KBASite$nationalname_fr),
+                                    " (",
+                                    DBS_KBASite$sitecode,
+                                    ") n'est plus une KBA indépendante et a été incorporée au sein d'une autre KBA (",
+                                    ifelse(is.na(replacementSite$nationalname_fr), replacementSite$nationalname, replacementSite$nationalname_fr),
+                                    " - ",
+                                    replacementSite$sitecode,
+                                    "). Davantage d'informations au sujet de la KBA de ",
+                                    ifelse(is.na(replacementSite$nationalname_fr), replacementSite$nationalname, replacementSite$nationalname_fr),
+                                    " sont disponibles <a href='https://kbacanada.org/fr/site/?SiteCode=",
+                                    replacementSite$sitecode,
+                                    "'>ici</a>",
+                                    ".")
         
       }else{
         ObsoleteReason_EN <- NA
