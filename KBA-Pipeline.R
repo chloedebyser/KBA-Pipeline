@@ -210,7 +210,17 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
                                             IUCNPopulationTrend == "Stable" ~ "Stable",
                                             IUCNPopulationTrend == "Unknown" ~ "Inconnue",
                                             .default = NA),
-         NSGRank_Precautionary = ifelse(is.na(precautionary_g_rank), ifelse(ca_nname_level == "Species", "GNR", "TNR"), precautionary_g_rank)) %>%
+         NSGRank_Precautionary = ifelse(is.na(precautionary_g_rank), ifelse(ca_nname_level == "Species", "GNR", "TNR"), precautionary_g_rank),
+         InformalTaxonomicGroup_FR = case_when(InformalTaxonomicGroup == "Amphibians and Reptiles" ~ "Amphibiens et reptiles",
+                                               InformalTaxonomicGroup == "Birds" ~ "Oiseaux",
+                                               InformalTaxonomicGroup == "Fishes" ~ "Poissons",
+                                               InformalTaxonomicGroup == "Fungi and Lichens" ~ "Champignons et lichens",
+                                               InformalTaxonomicGroup == "Invertebrates" ~ "Invertébrés",
+                                               InformalTaxonomicGroup == "Mammals" ~ "Mammifères",
+                                               InformalTaxonomicGroup == "Nonvascular Plants" ~ "Plantes non vasculaires",
+                                               InformalTaxonomicGroup == "Vascular Plants" ~ "Plantes vasculaires",
+                                               InformalTaxonomicGroup == "Sensitive Species" ~ "Espèces sensibles",
+                                               .default = NA)) %>%
   rowwise() %>%
   mutate(NSNRank_Precautionary = ifelse(is.na(precautionary_n_rank), ifelse(is.na(NSNRank), "NNR", c(precautionary_n_rank_breeding, precautionary_n_rank_nonbreed, precautionary_n_rank_migrant)[order(match(c(precautionary_n_rank_breeding, precautionary_n_rank_nonbreed, precautionary_n_rank_migrant), c("NU", "NNR", "N1", "N2", "N3", "N4", "N5", "NH", "NX", "NNA")))][1]), precautionary_n_rank)) %>%
   ungroup() %>%
