@@ -1261,7 +1261,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     left_join(.,REG_KBA_EcosystemAssessments %>% 
                 select(SiteID,EcosystemID,DateAssessed,
                        Original_ScientificNameEN,Original_ScientificNameFR,
-                       Original_TypeFR,Original_TypeEN),by=c("SiteID","EcosystemID","DateAssessed")) %>%
+                       Original_TypeFR,Original_TypeEN) %>% distinct(),
+              by=c("SiteID","EcosystemID","DateAssessed")) %>%
     left_join(.,crosswalk_EcosystemID,by=c("EcosystemID"="REG_EcosystemID")) %>%
     left_join(.,DB_BIOTICS_ECOSYSTEM %>% 
                 select(ecosystemid,ivc_formatted_scientific_name, 
