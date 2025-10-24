@@ -1729,7 +1729,7 @@ if(nrow(siteErrors)>0 | length(cleanupError) >0){
 
 # If on production, refresh vector tiles
 if(docker_env=="Production"){
-  httr::POST(url = "http://174.140.177.39:8080/geoserver/gwc/rest/masstruncate",
+  httr::POST(url = "http://geoserver:8080/geoserver/gwc/rest/masstruncate",
              config = authenticate("admin",geoserver_pass,type = "basic"),
              body = "<truncateLayer><layerName>kba:KBASite</layerName></truncateLayer>",
              content_type("text/xml"))
