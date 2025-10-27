@@ -4,7 +4,7 @@ message(paste0("\n\n\n\n\nStarting Pipeline at ", Sys.time(),"\n\n\n\n\n"))
 # 1. Clean Environment
 rm(list = ls())
 # 2. Set working directory
-setwd("/home/rstudio/KBA-Pipeline")
+setwd("/home/thekbapipeline/KBA-Pipeline")
 # 3. Git Pull most recent version
 system("sudo git pull")
 # 4. Run Pipeline
