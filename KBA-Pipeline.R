@@ -126,6 +126,17 @@ for(i in 1:length(dataTables)){
 }
 rm(i)
 
+# Shared spreadsheets
+      # Obsolete reason
+download.file(obsoleteReasonURL, destfile="ObsoleteReason.xlsx", mode="wb", quiet=T)
+obsoleteReason <- read.xlsx("ObsoleteReason.xlsx")
+file.remove("ObsoleteReason.xlsx")
+
+      # Gallery items
+download.file(galleryItemsURL, destfile="GalleryItems.xlsx", mode="wb", quiet=T)
+galleryItems <- read.xlsx("GalleryItems.xlsx")
+file.remove("GalleryItems.xlsx")
+
 # Check if backup date is greater than last pipeline run
 backupdate <- REG_BackupDate %>% filter(datetime==max(datetime)) %>% pull(datetime) %>% force_tz(.,tzone="Canada/Eastern")
 
@@ -156,7 +167,6 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          ScientificName = national_scientific_name,
          InformalTaxonomicGroup = kba_group,
          CommonName_EN = national_engl_name,
-         CommonName_FR = national_fr_name,
          Kingdom = kingdom,
          Phylum = phylum,
          Class = class,
@@ -183,7 +193,8 @@ REGA_Species <- DB_BIOTICS_ELEMENT_NATIONAL %>%
          NSNRankReviewDate = n_rank_review_date,
          NSLink = nsx_url) %>%
   left_join(., Bird_Species, by="NSElementCode") %>%
-  mutate(NationalName_EN = CommonName_EN,
+  mutate(CommonName_FR = sub(";.*", "", national_fr_name),
+         NationalName_EN = CommonName_EN,
          NationalName_FR = CommonName_FR,
          Subspecies_EN = NA,
          Subspecies_FR = NA,
@@ -545,49 +556,64 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
       
       if(docker_env == "Production"){
         
-        # Get all accepted sites other than the focal site
-        otherAcceptedSites <- DB_KBASite %>%
-          filter(!kbasiteid == id, sitestatus %in% 6:8) %>%
-          filter(!year(confirmdate) == 1900) %>% # Only retain confirmed sites
-          st_make_valid()
+        # Check if an obsolete reason is provided in the dedicated spreadsheet
+        if(DBS_KBASite$sitecode %in% obsoleteReason$SiteCode){
+          
+          ObsoleteReason_EN <- obsoleteReason %>%
+            filter(SiteCode == DBS_KBASite$sitecode) %>%
+            pull(ObsoleteReason_EN)
+          
+          ObsoleteReason_FR <- obsoleteReason %>%
+            filter(SiteCode == DBS_KBASite$sitecode) %>%
+            pull(ObsoleteReason_FR)
+          
+        # Otherwise, compute obsolete reason
+        }else{
         
-        # Get accepted sites that intersect the focal site
-        replacementSite <- otherAcceptedSites[unlist(st_intersects(DBS_KBASite, otherAcceptedSites)[[1]]),]
-        
-        # Check that there is exactly one accepted site intersecting the focal site
-        if(!nrow(replacementSite) == 1){
-          stop("Site is obsolete and replacement site was not found.")
+          # Get all accepted sites other than the focal site
+          otherAcceptedSites <- DB_KBASite %>%
+            filter(!kbasiteid == id, sitestatus %in% 6:8) %>%
+            filter(!year(confirmdate) == 1900) %>% # Only retain confirmed sites
+            st_make_valid()
+          
+          # Get accepted sites that intersect the focal site
+          replacementSite <- otherAcceptedSites[unlist(st_intersects(DBS_KBASite, otherAcceptedSites)[[1]]),]
+          
+          # Check that there is exactly one accepted site intersecting the focal site
+          if(!nrow(replacementSite) == 1){
+            stop("Site is obsolete, is not listed in the obsolete reason spreadsheet, and replacement site was not found.")
+          }
+          
+          # Compute obsolete reason
+          ObsoleteReason_EN <- paste0(DBS_KBASite$nationalname,
+                                      " KBA (",
+                                      DBS_KBASite$sitecode,
+                                      ") has been incorporated into another KBA (",
+                                      replacementSite$nationalname,
+                                      " - ",
+                                      replacementSite$sitecode,
+                                      ") and is no longer a standalone KBA. Click <a href='https://kbacanada.org/site/?SiteCode=",
+                                      replacementSite$sitecode,
+                                      "'>here</a>",
+                                      " for more information about the ",
+                                      replacementSite$nationalname,
+                                      " KBA.")
+          
+          ObsoleteReason_FR <- paste0("La KBA de ",
+                                      ifelse(is.na(DBS_KBASite$nationalname_fr), DBS_KBASite$nationalname, DBS_KBASite$nationalname_fr),
+                                      " (",
+                                      DBS_KBASite$sitecode,
+                                      ") n'est plus une KBA indépendante et a été incorporée au sein d'une autre KBA (",
+                                      ifelse(is.na(replacementSite$nationalname_fr), replacementSite$nationalname, replacementSite$nationalname_fr),
+                                      " - ",
+                                      replacementSite$sitecode,
+                                      "). Davantage d'informations au sujet de la KBA de ",
+                                      ifelse(is.na(replacementSite$nationalname_fr), replacementSite$nationalname, replacementSite$nationalname_fr),
+                                      " sont disponibles <a href='https://kbacanada.org/fr/site/?SiteCode=",
+                                      replacementSite$sitecode,
+                                      "'>ici</a>",
+                                      ".")
         }
-        
-        # Compute obsolete reason
-        ObsoleteReason_EN <- paste0(DBS_KBASite$nationalname,
-                                    " KBA (",
-                                    DBS_KBASite$sitecode,
-                                    ") has been incorporated into another KBA (",
-                                    replacementSite$nationalname,
-                                    " - ",
-                                    replacementSite$sitecode,
-                                    ") and is no longer a standalone KBA. Click <a href='https://kbacanada.org/site/?SiteCode=",
-                                    replacementSite$sitecode,
-                                    "'>here</a>",
-                                    " for more information about the ",
-                                    replacementSite$nationalname,
-                                    " KBA.")
-        
-        ObsoleteReason_FR <- paste0("La KBA de ",
-                                    ifelse(is.na(DBS_KBASite$nationalname_fr), DBS_KBASite$nationalname, DBS_KBASite$nationalname_fr),
-                                    " (",
-                                    DBS_KBASite$sitecode,
-                                    ") n'est plus une KBA indépendante et a été incorporée au sein d'une autre KBA (",
-                                    ifelse(is.na(replacementSite$nationalname_fr), replacementSite$nationalname, replacementSite$nationalname_fr),
-                                    " - ",
-                                    replacementSite$sitecode,
-                                    "). Davantage d'informations au sujet de la KBA de ",
-                                    ifelse(is.na(replacementSite$nationalname_fr), replacementSite$nationalname, replacementSite$nationalname_fr),
-                                    " sont disponibles <a href='https://kbacanada.org/fr/site/?SiteCode=",
-                                    replacementSite$sitecode,
-                                    "'>ici</a>",
-                                    ".")
         
       }else{
         ObsoleteReason_EN <- NA
@@ -628,7 +654,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   # TEMP - Stop 5 bird sites from being processed in the production environment until proposal forms are ready (TO DO: Remove once proposal forms are ready)
   if(docker_env=="Production"){
     
-    if(DBS_KBASite$sitecode %in% c("AB002", "BC017", "NT002", "NU007")){
+    if(DBS_KBASite$sitecode %in% c("AB002", "BC017", "NT002")){
       processSite <- F
     }
   }
@@ -1686,7 +1712,37 @@ registryDB %>% delete.sites(deletesitecodes)
 registryDB %>% cleanup.internalboundary()
 registryDB %>% cleanup.species()
 registryDB %>% cleanup.ecosystems()
-  
+
+#### REPLACE PHOTO TABLES ####
+# Format tables
+REGA_KBA_Photo <- galleryItems %>%
+  filter(!is.na(SiteCode)) %>%
+  filter(SiteCode %in% REG_KBA_Site$SiteCode) %>%
+  filter(!SiteCode %in% deletesitecodes) %>% # Exclude sites that were just deleted
+  mutate(SiteCode = as.character(SiteCode)) %>%
+  left_join(., st_drop_geometry(REG_KBA_Site[,c("SiteID", "SiteCode")]), by="SiteCode") %>%
+  mutate(KBAPhotoID = ifelse(nrow(.) > 0, 1:nrow(.), NA)) %>%
+  select(-c(SiteCode, Registry.SpeciesID, Registry.EcosystemID, Date.Added, Added.By))
+
+REGA_Species_Photo <- galleryItems %>%
+  filter(!is.na(Registry.SpeciesID)) %>%
+  filter(Registry.SpeciesID %in% REGU_Species$SpeciesID) %>%
+  mutate(SpeciesID = Registry.SpeciesID,
+         SpeciesPhotoID = ifelse(nrow(.) > 0, 1:nrow(.), NA)) %>%
+  select(-c(SiteCode, Registry.SpeciesID, Registry.EcosystemID, Date.Added, Added.By))
+
+REGA_Ecosystem_Photo <- galleryItems %>%
+  filter(!is.na(Registry.EcosystemID)) %>%
+  filter(Registry.EcosystemID %in% REGU_Ecosystem$EcosystemID) %>%
+  mutate(EcosystemID = Registry.EcosystemID,
+         EcosystemPhotoID = ifelse(nrow(.) > 0, 1:nrow(.), NA)) %>%
+  select(-c(SiteCode, Registry.SpeciesID, Registry.EcosystemID, Date.Added, Added.By))
+
+# Replace tables
+registryDB %>% update.table(tablename = "KBA_Photo", primarykey = "KBAPhotoID", newData = REGA_KBA_Photo, existingdata = REG_KBA_Photo, full=T)
+registryDB %>% update.table(tablename = "Species_Photo", primarykey = "SpeciesPhotoID", newData = REGA_Species_Photo, existingdata = REG_Species_Photo, full=T)
+registryDB %>% update.table(tablename = "Ecosystem_Photo", primarykey = "KBAEcosystemID", newData = REGA_Ecosystem_Photo, existingdata = REG_Ecosystem_Photo, full=T)
+
 #### FOOTNOTES - Generate footnotes for species and ecosystems ####
 registryDB %>% generate.footnotes(crosswalk_SpeciesID,
                                   DB_BIOTICS_ELEMENT_NATIONAL,
