@@ -650,15 +650,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
   
   # Check whether site should be processed in the current pipeline run
   processSite <- (overall_last_edited_date <= DBS_KBASite$confirmdate) & (!addition_deletion) & (overall_last_edited_date >= lastPipelineRun)
-  
-  # TEMP - Stop 5 bird sites from being processed in the production environment until proposal forms are ready (TO DO: Remove once proposal forms are ready)
-  if(docker_env=="Production"){
-    
-    if(DBS_KBASite$sitecode %in% c("AB002", "BC017", "NT002")){
-      processSite <- F
-    }
-  }
-  
+
   # Only proceed with the rest of the loop if the site is ready for processing
   if(!processSite){next}
   
