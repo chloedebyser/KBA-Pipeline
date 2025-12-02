@@ -33,7 +33,7 @@ source("functions.R")
 lastPipelineRun <- readRDS("lastPipelineRun.RDS")
 
 # Environment variables 
-env_vars <- c("kbapipeline_pswd", "postgres_user", "postgres_pass", "database_name", "database_host", "mailtrap_pass", "database_port", "geoserver_pass", "docker_env")
+env_vars <- c("kbapipeline_pswd", "postgres_user", "postgres_pass", "database_name", "database_host", "mailtrap_pass", "database_port", "geoserver_pass", "docker_env", "obsoleteReasonURL", "galleryItemsURL")
 
 for(env in env_vars){
   
