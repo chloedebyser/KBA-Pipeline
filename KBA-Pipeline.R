@@ -557,7 +557,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
       if(docker_env == "Production"){
         
         # Check if an obsolete reason is provided in the dedicated spreadsheet
-        if(DBS_KBASite$sitecode %in% obsoleteReason$SiteCode){
+        if(DBS_KBASite$sitecode %in% obsoleteReason[which(!is.na(obsoleteReason$ObsoleteReason_EN)), "SiteCode"]){
           
           ObsoleteReason_EN <- obsoleteReason %>%
             filter(SiteCode == DBS_KBASite$sitecode) %>%
@@ -735,7 +735,7 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
     filter(biodivelementdistributionid %in% biodivelementdistributionids)
   
   ### If global site not yet globally accepted, set to national and add disclaimer ###
-  if((DBS_KBASite$kbalevel_en %in% c("Global", "Global and National")) & (!DBS_KBASite$sitestatus == "8")){
+  if((DBS_KBASite$kbalevel_en %in% c("Global", "Global and National")) & (!DBS_KBASite$sitestatus == "8") & (!DBS_KBASite$sitecode %in% obsoleteReason[which(obsoleteReason$Level == "Global"), "SiteCode"])){
     
     # Change level to national
     DBS_KBASite %<>%
