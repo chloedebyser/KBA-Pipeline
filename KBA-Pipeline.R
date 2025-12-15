@@ -1706,8 +1706,40 @@ registryDB %>% cleanup.species()
 registryDB %>% cleanup.ecosystems()
 
 #### REPLACE PHOTO TABLES ####
+### Load Registry data ###
+# If database connection lost, try to reconnect
+if(!dbIsValid(registryDB)){
+  registryDB <- dbConnect(
+    Postgres(), 
+    user = postgres_user,
+    password = postgres_pass,
+    dbname = database_name,
+    host = database_host,
+    port = database_port
+  )
+}
+
+# Load data
+for(i in 1:length(dataTables)){
+  
+  # Get data
+  # If spatial
+  if(dataTables[[i]][2]){
+    data <- registryDB %>% read_sf(dataTables[[i]][1])
+    
+    # If non-spatial
+  }else{
+    data <- registryDB %>% tbl(dataTables[[i]][1]) %>% collect()
+  }
+  
+  # Assign data
+  assign(paste0("REG_", dataTables[[i]][1]), data)
+  rm(data)
+}
+rm(i)
+
 # Format tables
-REGA_KBA_Photo <- galleryItems %>%
+REGU_KBA_Photo <- galleryItems %>%
   filter(!is.na(SiteCode)) %>%
   filter(SiteCode %in% REG_KBA_Site$SiteCode) %>%
   filter(!SiteCode %in% deletesitecodes) %>% # Exclude sites that were just deleted
@@ -1716,24 +1748,24 @@ REGA_KBA_Photo <- galleryItems %>%
   mutate(KBAPhotoID = ifelse(nrow(.) > 0, 1:nrow(.), NA)) %>%
   select(-c(SiteCode, Registry.SpeciesID, Registry.EcosystemID, Date.Added, Added.By))
 
-REGA_Species_Photo <- galleryItems %>%
+REGU_Species_Photo <- galleryItems %>%
   filter(!is.na(Registry.SpeciesID)) %>%
-  filter(Registry.SpeciesID %in% REGU_Species$SpeciesID) %>%
+  filter(Registry.SpeciesID %in% REG_Species$SpeciesID) %>%
   mutate(SpeciesID = Registry.SpeciesID,
          SpeciesPhotoID = ifelse(nrow(.) > 0, 1:nrow(.), NA)) %>%
   select(-c(SiteCode, Registry.SpeciesID, Registry.EcosystemID, Date.Added, Added.By))
 
-REGA_Ecosystem_Photo <- galleryItems %>%
+REGU_Ecosystem_Photo <- galleryItems %>%
   filter(!is.na(Registry.EcosystemID)) %>%
-  filter(Registry.EcosystemID %in% REGU_Ecosystem$EcosystemID) %>%
+  filter(Registry.EcosystemID %in% REG_Ecosystem$EcosystemID) %>%
   mutate(EcosystemID = Registry.EcosystemID,
          EcosystemPhotoID = ifelse(nrow(.) > 0, 1:nrow(.), NA)) %>%
   select(-c(SiteCode, Registry.SpeciesID, Registry.EcosystemID, Date.Added, Added.By))
 
 # Replace tables
-registryDB %>% update.table(tablename = "KBA_Photo", primarykey = "KBAPhotoID", newData = REGA_KBA_Photo, existingdata = REG_KBA_Photo, full=T)
-registryDB %>% update.table(tablename = "Species_Photo", primarykey = "SpeciesPhotoID", newData = REGA_Species_Photo, existingdata = REG_Species_Photo, full=T)
-registryDB %>% update.table(tablename = "Ecosystem_Photo", primarykey = "KBAEcosystemID", newData = REGA_Ecosystem_Photo, existingdata = REG_Ecosystem_Photo, full=T)
+registryDB %>% update.table(tablename = "KBA_Photo", primarykey = "KBAPhotoID", newdata = REGU_KBA_Photo, existingdata = REG_KBA_Photo, full=T)
+registryDB %>% update.table(tablename = "Species_Photo", primarykey = "SpeciesPhotoID", newdata = REGU_Species_Photo, existingdata = REG_Species_Photo, full=T)
+registryDB %>% update.table(tablename = "Ecosystem_Photo", primarykey = "KBAEcosystemID", newdata = REGU_Ecosystem_Photo, existingdata = REG_Ecosystem_Photo, full=T)
 
 #### FOOTNOTES - Generate footnotes for species and ecosystems ####
 registryDB %>% generate.footnotes(crosswalk_SpeciesID,
