@@ -1852,7 +1852,7 @@ if(nrow(siteNotifications) > 0){
     }
     
     # Vector of emails to notify
-    notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org","acouturier@bsc-eoc.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org", "aleung@wcs.org", "dbrowne@birdscanada.org") %>%
+    notificationEmails <-  c("devans@birdscanada.org", "abichel@birdscanada.org","acouturier@bsc-eoc.org", "cdebyser@wcs.org", "psoroye@wcs.org", "craudsepp@wcs.org", "aleung@wcs.org", "dbrowne@birdscanada.org", "lpoley@wcs.org") %>%
       c(., trimws(unlist(strsplit(siteNotificationsNew$leademail, ";")))) %>%
       unique()
     
@@ -1863,16 +1863,6 @@ if(nrow(siteNotifications) > 0){
                      password = mailtrap_pass,
                      subject = "KBA Registry Update Notification",
                      message = notificationMessage)
-        
-      # Prepare shapefile for Sandra
-      shapefilePath <- create.shapefile(registryDB,path="Shapefile",sitecodes=siteNotifications$sitecode)
-      
-      # Send to Sandra
-      pipeline.email(to = "smarquez@birdscanada.org",
-                     password = mailtrap_pass,
-                     subject = "KBA Registry Update Notification",
-                     message = notificationMessage,
-                     attachment = shapefilePath)
       
     }else{
       
