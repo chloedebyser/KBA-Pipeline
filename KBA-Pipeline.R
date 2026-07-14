@@ -1115,7 +1115,8 @@ for(id in DB_KBASite %>% arrange(nationalname) %>% pull(kbasiteid)){
            ProtectedArea_EN = protectedarea_en,
            ProtectedArea_FR = protectedarea_fr,
            Type_EN = type_en,
-           Type_FR = type_fr) %>%
+           Type_FR = type_fr,
+           CPCADYear = cpcadyear) %>%
     select(all_of(colnames(REG_KBA_ProtectedArea)))
   
   if(DBS_KBASite$boundarygeneralization == "3"){ # If boundary generalization = 3, do not send protected area information
