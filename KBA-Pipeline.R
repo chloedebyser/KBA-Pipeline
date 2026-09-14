@@ -106,7 +106,7 @@ for(lookupTable in lookupTables){
 rm(lookupTable, lookupTables)
 
       # Data tables
-dataTables <- list(c("KBA_Site", T), c("KBA_Website", F), c("KBA_Citation", F), c("KBA_Conservation", F), c("KBA_Threats", F), c("KBA_System", F), c("KBA_Habitat", F), c("KBA_ProtectedArea", F), c("Species", F), c("Species_Citation", F), c("KBA_SpeciesAssessments", F), c("Ecosystem", F), c("Ecosystem_Citation", F), c("KBA_EcosystemAssessments", F), c("SpeciesAssessment_Subcriterion", F), c("EcosystemAssessment_Subcriterion", F), c("Footnote", F), c("InternalBoundary", T), c("Species_Link", F),c("BackupDate",F))
+dataTables <- list(c("KBA_Site", T), c("KBA_Website", F), c("KBA_Citation", F), c("KBA_Conservation", F), c("KBA_Threats", F), c("KBA_System", F), c("KBA_Habitat", F), c("KBA_ProtectedArea", F), c("Species", F), c("Species_Citation", F), c("KBA_SpeciesAssessments", F), c("Ecosystem", F), c("Ecosystem_Citation", F), c("KBA_EcosystemAssessments", F), c("SpeciesAssessment_Subcriterion", F), c("EcosystemAssessment_Subcriterion", F), c("Footnote", F), c("InternalBoundary", T), c("Species_Link", F), c("BackupDate",F), c("KBA_Photo", F), c("Species_Photo", F), c("Ecosystem_Photo", F))
 
 for(i in 1:length(dataTables)){
   
@@ -1740,28 +1740,54 @@ for(i in 1:length(dataTables)){
 rm(i)
 
 # Format tables
+galleryItems %<>%
+  mutate(SiteCode = as.character(SiteCode)) %>%
+  left_join(., st_drop_geometry(REG_KBA_Site[,c("SiteCode", "SiteID", "Name_EN", "Name_FR")], by="SiteCode")) %>%
+  left_join(., REG_Species[,c("SpeciesID", "NationalName_EN", "NationalName_FR")], by=c("Registry.SpeciesID"="SpeciesID")) %>%
+  left_join(., REG_Ecosystem[,c("EcosystemID", "EcosystemType_EN", "EcosystemType_FR")], by=c("Registry.EcosystemID"="EcosystemID")) %>%
+  mutate(Title_EN = case_when(!is.na(Title_EN) ~ Title_EN,
+                              !is.na(NationalName_EN) & !is.na(EcosystemType_EN) & !is.na(Name_EN) ~ paste(NationalName_EN, "and", EcosystemType_EN, "at", Name_EN, "KBA"),
+                              !is.na(NationalName_EN) & !is.na(EcosystemType_EN) ~ paste(NationalName_EN, "and", EcosystemType_EN),
+                              !is.na(NationalName_EN) & !is.na(Name_EN) ~ paste(NationalName_EN, "at", Name_EN, "KBA"),
+                              !is.na(EcosystemType_EN) & !is.na(Name_EN) ~ paste(EcosystemType_EN, "at", Name_EN, "KBA"),
+                              !is.na(NationalName_EN) ~ NationalName_EN,
+                              !is.na(EcosystemType_EN) ~ EcosystemType_EN,
+                              !is.na(Name_EN) ~ paste(Name_EN, "KBA"),
+                              .default=NA),
+         Title_FR = case_when(!is.na(Title_FR) ~ Title_FR,
+                              !is.na(NationalName_FR) & !is.na(EcosystemType_FR) & !is.na(Name_FR) ~ paste(NationalName_FR, "et", EcosystemType_FR, "dans la KBA «", Name_FR, "»"),
+                              !is.na(NationalName_FR) & !is.na(EcosystemType_FR) ~ paste(NationalName_FR, "et", EcosystemType_FR),
+                              !is.na(NationalName_FR) & !is.na(Name_FR) ~ paste(NationalName_FR, "dans la KBA «", Name_FR, "»"),
+                              !is.na(EcosystemType_FR) & !is.na(Name_FR) ~ paste(EcosystemType_FR, "dans la KBA «", Name_FR, "»"),
+                              !is.na(NationalName_FR) ~ NationalName_FR,
+                              !is.na(EcosystemType_FR) ~ EcosystemType_FR,
+                              !is.na(Name_FR) ~ Name_FR,
+                              .default=NA),
+         AlternativeText_EN = case_when(!is.na(Caption_EN) ~ Caption_EN,
+                                        .default = Title_EN),
+         AlternativeText_FR = case_when(!is.na(Caption_FR) ~ Caption_FR,
+                                        .default = Title_FR))
+
 REGU_KBA_Photo <- galleryItems %>%
   filter(!is.na(SiteCode)) %>%
   filter(SiteCode %in% REG_KBA_Site$SiteCode) %>%
   filter(!SiteCode %in% deletesitecodes) %>% # Exclude sites that were just deleted
-  mutate(SiteCode = as.character(SiteCode)) %>%
-  left_join(., st_drop_geometry(REG_KBA_Site[,c("SiteID", "SiteCode")]), by="SiteCode") %>%
-  mutate(KBAPhotoID = ifelse(nrow(.) > 0, 1:nrow(.), NA)) %>%
-  select(-c(SiteCode, Registry.SpeciesID, Registry.EcosystemID, Date.Added, Added.By))
+  mutate(KBAPhotoID = row_number()) %>%
+  select(colnames(REG_KBA_Photo))
 
 REGU_Species_Photo <- galleryItems %>%
   filter(!is.na(Registry.SpeciesID)) %>%
   filter(Registry.SpeciesID %in% REG_Species$SpeciesID) %>%
   mutate(SpeciesID = Registry.SpeciesID,
-         SpeciesPhotoID = ifelse(nrow(.) > 0, 1:nrow(.), NA)) %>%
-  select(-c(SiteCode, Registry.SpeciesID, Registry.EcosystemID, Date.Added, Added.By))
+         SpeciesPhotoID = row_number()) %>%
+  select(colnames(REG_Species_Photo))
 
 REGU_Ecosystem_Photo <- galleryItems %>%
   filter(!is.na(Registry.EcosystemID)) %>%
   filter(Registry.EcosystemID %in% REG_Ecosystem$EcosystemID) %>%
   mutate(EcosystemID = Registry.EcosystemID,
-         EcosystemPhotoID = ifelse(nrow(.) > 0, 1:nrow(.), NA)) %>%
-  select(-c(SiteCode, Registry.SpeciesID, Registry.EcosystemID, Date.Added, Added.By))
+         EcosystemPhotoID = row_number()) %>%
+  select(colnames(REG_Ecosystem_Photo))
 
 # Replace tables
 registryDB %>% update.table(tablename = "KBA_Photo", primarykey = "KBAPhotoID", newdata = REGU_KBA_Photo, existingdata = REG_KBA_Photo, full=T)
